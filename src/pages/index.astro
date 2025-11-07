@@ -1,9 +1,15 @@
 ---
 import DashboardLayout from '../components/layouts/DashboardLayout.astro';
-import StatCard from '../components/ui/StatCard';
+import WelcomeHeader from '../components/dashboard/WelcomeHeader';
+import StatsBar from '../components/dashboard/StatsBar';
+import TaskList from '../components/dashboard/TaskList';
+import NotificationList from '../components/dashboard/NotificationList';
+import QuickActions from '../components/dashboard/QuickActions';
+import GettingStarted from '../components/dashboard/GettingStarted';
 import ActivityLog from '../components/ui/ActivityLog';
 import PublishWidget from '../components/ui/PublishWidget';
 import { createSupabaseServer } from '../lib/supabaseServer';
+import { getTasks, getNotifications } from '../lib/github';
 
 // Get user
 const supabase = createSupabaseServer(Astro.cookies);
@@ -15,6 +21,11 @@ if (!user) {
 
 // Get user's first name or email
 const userName = user.user_metadata?.name?.split(' ')[0] || user.email?.split('@')[0] || 'there';
+
+// Check if user is the workspace owner
+// For now, assume the logged-in user is the owner
+// In a full implementation, this would check against workspace ownership
+const isOwner = true; // TODO: Implement proper ownership check
 
 // Fetch real data from database
 const { data: projects } = await supabase
@@ -34,12 +45,17 @@ const { data: subprojects } = await supabase
   .select('id, project_id')
   .in('project_id', (projects || []).map(p => p.id));
 
+const { data: documents } = await supabase
+  .from('documents')
+  .select('id')
+  .eq('owner', user.id);
+
 // Calculate stats (handle null values from failed queries)
 const stats = {
   projects: projects?.length || 0,
+  subprojects: subprojects?.length || 0,
   updates: activities?.length || 0,
-  subProjects: subprojects?.length || 0,
-  collaborators: 0, // TODO: Implement collaborators feature
+  documents: documents?.length || 0,
 };
 
 // Transform activities for ActivityLog component
@@ -50,111 +66,115 @@ const recentActivities = (activities || []).slice(0, 5).map((activity) => ({
   timestamp: new Date(activity.created_at),
   type: activity.type || 'update',
 }));
+
+// Fetch GitHub tasks and notifications
+// For now, use empty arrays if no GitHub token is available
+let tasks: any[] = [];
+let notifications: any[] = [];
+
+try {
+  // Check if user has GitHub token stored
+  const { data: userRepo } = await supabase
+    .from('user_repos')
+    .select('github_token')
+    .eq('user_id', user.id)
+    .single();
+
+  if (userRepo?.github_token) {
+    // Fetch tasks and notifications from GitHub
+    const { data: repoInfo } = await supabase
+      .from('user_repos')
+      .select('repo_owner, repo_name')
+      .eq('user_id', user.id)
+      .single();
+
+    if (repoInfo) {
+      tasks = await getTasks(userRepo.github_token, repoInfo.repo_owner, repoInfo.repo_name);
+      notifications = await getNotifications(userRepo.github_token);
+    }
+  }
+} catch (error) {
+  console.error('Error fetching GitHub data:', error);
+  // Use empty arrays as fallback
+}
 ---
 
 <DashboardLayout title="Dashboard - Workspace">
   <!-- Welcome Header -->
-  <div class="mb-8">
-    <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-      Welcome back, {userName}! 👋
-    </h1>
-    <p class="text-base text-gray-600 dark:text-gray-400">
-      Here's what's happening with your workspace today.
-    </p>
-  </div>
+  <WelcomeHeader client:load userName={userName} />
 
-  <!-- Stats Grid -->
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-    <StatCard
+  <!-- Compact Stats Bar (Phase 2: Less prominent) -->
+  <StatsBar
+    client:load
+    projects={stats.projects}
+    subprojects={stats.subprojects}
+    updates={stats.updates}
+    documents={stats.documents}
+  />
+
+  <!-- Main Content -->
+  <div class="dashboard-content">
+    <!-- Task List - PROMINENT (Phase 2: Highest Priority) -->
+    <!-- Context-aware: Only show create button for owners -->
+    <TaskList
       client:load
-      title="Projects"
-      value={stats.projects}
-      description="Active research projects"
-      trend={{ value: 12, isPositive: true }}
+      tasks={tasks}
+      maxVisible={5}
+      showCreateButton={isOwner}
     />
 
-    <StatCard
-      client:load
-      title="Updates"
-      value={stats.updates}
-      description="Published this month"
-      trend={{ value: 20, isPositive: true }}
-    />
-
-    <StatCard
-      client:load
-      title="Sub-Projects"
-      value={stats.subProjects}
-      description="Active sub-projects"
-      trend={{ value: 8, isPositive: true }}
-    />
-
-    <StatCard
-      client:load
-      title="Collaborators"
-      value={stats.collaborators}
-      description="Team members"
-      trend={{ value: 0, isPositive: true }}
-    />
-  </div>
-
-  <!-- Grid Layout for Content -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Recent Updates (Takes 2 columns) -->
-    <div class="lg:col-span-2">
-      <div class="content-section">
-        <div class="section-header">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-primary">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <h2 class="section-title">Recent Updates</h2>
-        </div>
-        <ActivityLog client:load activities={recentActivities} limit={4} />
+    <!-- Recent Updates -->
+    <div class="content-section">
+      <div class="section-header">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-primary">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <h2 class="section-title">Recent Updates</h2>
       </div>
+      <ActivityLog client:load activities={recentActivities} limit={4} />
     </div>
+  </div>
 
-    <!-- Quick Actions & Sidebar -->
-    <div class="lg:col-span-1 space-y-6">
-      <div class="content-section">
-        <h2 class="section-title mb-4">Quick Actions</h2>
-        <div class="flex flex-col gap-3">
-          <a href="/projects/new" class="btn-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            New Project
-          </a>
-          <a href="/keystatic#/collection/updates" class="btn-secondary">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-            </svg>
-            New Update
-          </a>
-          <a href="/projects" class="btn-ghost">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-            </svg>
-            View Projects
-          </a>
+  <!-- Right Sidebar - Tool Panel -->
+  <div slot="sidebar-right">
+    {isOwner && (
+      <>
+        <!-- Notifications Section -->
+        <div class="sidebar-section">
+          <NotificationList
+            client:load
+            notifications={notifications}
+            maxVisible={5}
+            showMarkAllRead={true}
+          />
         </div>
-      </div>
 
-      <!-- Publish Status -->
-      <PublishWidget client:load />
+        <!-- Quick Actions Section -->
+        <div class="sidebar-section">
+          <QuickActions client:load />
+        </div>
 
-      <!-- Tips Card -->
-      <div class="onboarding-card">
-        <h3 class="onboarding-title">Getting Started</h3>
-        <p class="onboarding-description">
-          Create your first project to start organizing your research and updates.
+        <!-- Publish Status Section (Compact) -->
+        <div class="sidebar-section compact">
+          <PublishWidget client:load />
+        </div>
+      </>
+    )}
+
+    {!isOwner && (
+      <!-- Visitor View: Show how to contribute -->
+      <div class="sidebar-section">
+        <h3 class="section-title">Want to Contribute?</h3>
+        <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+          Check out the tasks to see how you can help!
         </p>
-        <a href="/docs" class="btn-white">
-          Learn More
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-          </svg>
-        </a>
+        <a href="#tasks" class="btn btn-primary btn-block">View Open Tasks</a>
       </div>
+    )}
+
+    <!-- Getting Started Section (Highlighted) -->
+    <div class="sidebar-section highlight">
+      <GettingStarted client:load />
     </div>
   </div>
 </DashboardLayout>

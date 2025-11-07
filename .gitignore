@@ -31,6 +31,3 @@ pnpm-debug.log*
 .vercel
 
 # Markdown files (except README.md)
-*.md
-!README.md
-workspace-template/

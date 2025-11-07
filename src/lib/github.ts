@@ -13,6 +13,8 @@
 
 import matter from 'gray-matter';
 import { Octokit } from 'octokit';
+import type { Task } from '../components/dashboard/TaskList';
+import type { Notification } from '../components/dashboard/NotificationList';
 
 /**
  * Types for parsed content
@@ -399,4 +401,325 @@ export function checkContentAccess(
   }
 
   return { allowed: false, reason: 'Unknown visibility setting' };
+}
+
+/**
+ * ============================================
+ * MARKDOWN EDITOR FUNCTIONS
+ * ============================================
+ */
+
+/**
+ * Read a markdown file from GitHub
+ * Returns both content and SHA for updating
+ */
+export async function readMarkdownFile(
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  branch: string = 'main'
+): Promise<{ content: string; sha: string } | null> {
+  const octokit = createOctokit(token);
+
+  try {
+    const response = await octokit.rest.repos.getContent({
+      owner,
+      repo,
+      path,
+      ref: branch,
+    });
+
+    if ('content' in response.data && response.data.type === 'file') {
+      const content = Buffer.from(response.data.content, 'base64').toString('utf-8');
+      return {
+        content,
+        sha: response.data.sha,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    if (error instanceof Error && 'status' in error && error.status === 404) {
+      return null; // File not found
+    }
+    console.error('[GitHub] Error reading markdown file:', error);
+    throw error;
+  }
+}
+
+/**
+ * Save (create or update) a markdown file to GitHub
+ * Creates a commit with the provided message
+ */
+export async function saveMarkdownFile(
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  content: string,
+  message: string,
+  sha?: string,
+  branch: string = 'main'
+): Promise<{ sha: string; commit: string }> {
+  const octokit = createOctokit(token);
+
+  try {
+    const response = await octokit.rest.repos.createOrUpdateFileContents({
+      owner,
+      repo,
+      path,
+      message,
+      content: Buffer.from(content).toString('base64'),
+      sha, // Required for updates, omit for new files
+      branch,
+    });
+
+    return {
+      sha: response.data.content?.sha || '',
+      commit: response.data.commit.sha || '',
+    };
+  } catch (error) {
+    console.error('[GitHub] Error saving markdown file:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a markdown file from GitHub
+ */
+export async function deleteMarkdownFile(
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  message: string,
+  sha: string,
+  branch: string = 'main'
+): Promise<void> {
+  const octokit = createOctokit(token);
+
+  try {
+    await octokit.rest.repos.deleteFile({
+      owner,
+      repo,
+      path,
+      message,
+      sha,
+      branch,
+    });
+  } catch (error) {
+    console.error('[GitHub] Error deleting markdown file:', error);
+    throw error;
+  }
+}
+
+/**
+ * List all markdown files in a directory
+ */
+export async function listMarkdownFiles(
+  token: string,
+  owner: string,
+  repo: string,
+  path: string = '',
+  branch: string = 'main'
+): Promise<Array<{ name: string; path: string; sha: string }>> {
+  const octokit = createOctokit(token);
+
+  try {
+    const response = await octokit.rest.repos.getContent({
+      owner,
+      repo,
+      path,
+      ref: branch,
+    });
+
+    if (Array.isArray(response.data)) {
+      return response.data
+        .filter((item) => item.type === 'file' && item.name.endsWith('.md'))
+        .map((item) => ({
+          name: item.name,
+          path: item.path,
+          sha: item.sha,
+        }));
+    }
+
+    return [];
+  } catch (error) {
+    console.error('[GitHub] Error listing markdown files:', error);
+    return [];
+  }
+}
+
+/**
+ * ============================================
+ * TASK & NOTIFICATION FEATURES (Phase 2)
+ * ============================================
+ */
+
+/**
+ * Fetch tasks from GitHub Issues
+ * Tasks are GitHub Issues labeled with "task"
+ */
+export async function getTasks(
+  token: string,
+  owner: string,
+  repo: string
+): Promise<Task[]> {
+  const octokit = createOctokit(token);
+
+  try {
+    const { data: issues } = await octokit.rest.issues.listForRepo({
+      owner,
+      repo,
+      state: 'open',
+      labels: 'task',
+      sort: 'created',
+      direction: 'desc',
+    });
+
+    return issues.map((issue) => ({
+      id: issue.id.toString(),
+      title: issue.title,
+      description: issue.body || undefined,
+      status: issue.state === 'closed' ? 'done' : 'todo',
+      priority: getPriorityFromLabels(issue.labels),
+      assignedTo: issue.assignee?.login || 'Anyone',
+      dueDate: getMilestoneDueDate(issue.milestone),
+      githubIssueUrl: issue.html_url,
+      createdAt: issue.created_at,
+      updatedAt: issue.updated_at,
+    }));
+  } catch (error) {
+    console.error('[GitHub] Error fetching tasks:', error);
+    return [];
+  }
+}
+
+/**
+ * Get priority from issue labels
+ */
+function getPriorityFromLabels(labels: any[]): 'low' | 'medium' | 'high' {
+  const labelNames = labels.map((l) =>
+    typeof l === 'string' ? l.toLowerCase() : l.name?.toLowerCase() || ''
+  );
+
+  if (labelNames.includes('priority: high') || labelNames.includes('high priority')) {
+    return 'high';
+  }
+  if (labelNames.includes('priority: medium') || labelNames.includes('medium priority')) {
+    return 'medium';
+  }
+  return 'low';
+}
+
+/**
+ * Get due date from milestone
+ */
+function getMilestoneDueDate(milestone: any): string | undefined {
+  return milestone?.due_on || undefined;
+}
+
+/**
+ * Fetch notifications from GitHub
+ */
+export async function getNotifications(
+  token: string
+): Promise<Notification[]> {
+  const octokit = createOctokit(token);
+
+  try {
+    const { data: githubNotifications } = await octokit.rest.activity.listNotificationsForAuthenticatedUser({
+      all: false,
+      participating: true,
+    });
+
+    return githubNotifications.map((notif) => ({
+      id: notif.id,
+      type: mapNotificationType(notif.reason),
+      title: getNotificationTitle(notif.reason, notif.subject.type),
+      description: notif.subject.title,
+      actor: {
+        username: notif.repository.owner.login,
+        avatarUrl: notif.repository.owner.avatar_url || '',
+      },
+      targetUrl: notif.subject.url || notif.repository.html_url,
+      read: notif.unread === false,
+      createdAt: notif.updated_at,
+    }));
+  } catch (error) {
+    console.error('[GitHub] Error fetching notifications:', error);
+    return [];
+  }
+}
+
+/**
+ * Map GitHub notification reason to our notification type
+ */
+function mapNotificationType(reason: string): Notification['type'] {
+  const mapping: Record<string, Notification['type']> = {
+    'comment': 'comment',
+    'mention': 'mention',
+    'subscribed': 'star',
+    'assign': 'task_assigned',
+    'review_requested': 'pr',
+    'team_mention': 'mention',
+    'state_change': 'issue',
+  };
+  return mapping[reason] || 'issue';
+}
+
+/**
+ * Get notification title based on reason and subject type
+ */
+function getNotificationTitle(reason: string, subjectType: string): string {
+  const titles: Record<string, string> = {
+    'comment': 'commented on',
+    'mention': 'mentioned you in',
+    'subscribed': 'starred',
+    'assign': 'assigned you to',
+    'review_requested': 'requested your review on',
+    'team_mention': 'mentioned your team in',
+    'state_change': 'updated',
+  };
+
+  const action = titles[reason] || 'updated';
+  const type = subjectType === 'PullRequest' ? 'a pull request' : 'an issue';
+
+  return `${action} ${type}`;
+}
+
+/**
+ * Mark a notification as read
+ */
+export async function markNotificationAsRead(
+  token: string,
+  notificationId: string
+): Promise<void> {
+  const octokit = createOctokit(token);
+
+  try {
+    await octokit.rest.activity.markThreadAsRead({
+      thread_id: parseInt(notificationId),
+    });
+  } catch (error) {
+    console.error('[GitHub] Error marking notification as read:', error);
+  }
+}
+
+/**
+ * Mark all notifications as read
+ */
+export async function markAllNotificationsAsRead(
+  token: string
+): Promise<void> {
+  const octokit = createOctokit(token);
+
+  try {
+    await octokit.rest.activity.markNotificationsAsRead({
+      read: true,
+    });
+  } catch (error) {
+    console.error('[GitHub] Error marking all notifications as read:', error);
+  }
 }

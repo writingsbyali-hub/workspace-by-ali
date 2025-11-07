@@ -1,0 +1,141 @@
+---
+/**
+ * Markdown Editor Page
+ * Dynamic route for editing markdown documents
+ */
+
+import DashboardLayout from '../../components/layouts/DashboardLayout.astro';
+import { MarkdownEditor } from '../../components/editor/MarkdownEditor';
+import { readMarkdownFile } from '../../lib/github';
+import { createSupabaseServer } from '../../lib/supabaseServer';
+import { decryptToken } from '../../lib/tokenEncryption';
+import '../../styles/editor.css';
+import '../../styles/markdown-preview.css';
+
+// Get document ID from URL params
+const { id } = Astro.params;
+
+// Get user
+const supabase = createSupabaseServer(Astro.cookies);
+const { data: { user } } = await supabase.auth.getUser();
+
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+// Fetch user's GitHub repo info
+const { data: userRepo, error: repoError } = await supabase
+  .from('user_repos')
+  .select('repo_owner, repo_name, github_token_encrypted, user_id')
+  .eq('user_id', user.id)
+  .single();
+
+if (repoError || !userRepo || !userRepo.github_token_encrypted) {
+  // User hasn't connected GitHub yet - redirect to onboarding
+  return Astro.redirect('/onboarding');
+}
+
+// Decrypt GitHub token
+let githubToken: string;
+try {
+  githubToken = decryptToken(userRepo.github_token_encrypted);
+} catch (error) {
+  console.error('[Editor Page] Token decryption failed:', error);
+  return Astro.redirect('/onboarding');
+}
+
+// Get query parameters for custom path (optional)
+const url = new URL(Astro.request.url);
+const customPath = url.searchParams.get('path');
+const branch = url.searchParams.get('branch') || 'main';
+
+// Determine file path
+const path = customPath || `content/docs/${id}/index.md`;
+
+// Load existing document (if it exists)
+let initialContent = '';
+let initialTitle = 'Untitled Document';
+let fileSha: string | undefined;
+
+try {
+  const fileData = await readMarkdownFile(
+    githubToken,
+    userRepo.repo_owner,
+    userRepo.repo_name,
+    path,
+    branch
+  );
+
+  if (fileData) {
+    initialContent = fileData.content;
+    fileSha = fileData.sha;
+
+    // Try to extract title from first line or H1
+    const firstLine = fileData.content.split('\n')[0];
+    if (firstLine.startsWith('# ')) {
+      initialTitle = firstLine.replace('# ', '').trim();
+    } else if (firstLine.trim()) {
+      initialTitle = firstLine.trim();
+    }
+  }
+} catch (error) {
+  console.error('Error loading document:', error);
+  // Continue with empty document
+}
+
+// Prepare props for the editor
+const editorProps = {
+  documentId: id,
+  initialTitle,
+  initialContent,
+  githubInfo: {
+    owner: userRepo.repo_owner,
+    repo: userRepo.repo_name,
+    path,
+    branch,
+    sha: fileSha,
+  },
+};
+---
+
+<DashboardLayout title={initialTitle}>
+  <MarkdownEditor
+    client:only="react"
+    documentId={editorProps.documentId}
+    initialTitle={editorProps.initialTitle}
+    initialContent={editorProps.initialContent}
+    onSave={async (content: string, title: string) => {
+      // This will be called from the client-side
+      const response = await fetch('/api/editor/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          owner: editorProps.githubInfo.owner,
+          repo: editorProps.githubInfo.repo,
+          path: editorProps.githubInfo.path,
+          content,
+          title,
+          sha: editorProps.githubInfo.sha,
+          branch: editorProps.githubInfo.branch,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save document');
+      }
+
+      const data = await response.json();
+      // Update SHA for next save
+      editorProps.githubInfo.sha = data.sha;
+    }}
+    onBack={() => {
+      window.history.back();
+    }}
+    onPublish={async () => {
+      // Handle publish logic
+      alert('Publish functionality coming soon!');
+    }}
+  />
+</DashboardLayout>

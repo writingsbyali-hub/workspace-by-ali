@@ -78,135 +78,54 @@ export default function PublishWidget() {
   }
 
   return (
-    <div className="card bg-base-100 shadow-xl">
-      <div className="card-body">
-        <h3 className="card-title text-base">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="w-5 h-5"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-            />
-          </svg>
-          Publish Status
-        </h3>
+    <>
+      <h3 className="section-title">Publish Status</h3>
 
-        {loading ? (
-          <div className="flex items-center gap-2">
-            <span className="loading loading-spinner loading-sm"></span>
-            <span className="text-sm text-base-content/60">Checking status...</span>
-          </div>
-        ) : status?.has_unpublished_changes ? (
-          <>
-            <div className="alert alert-warning py-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="stroke-current shrink-0 h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-              <span className="text-sm">
-                <strong>{status.commits_ahead}</strong> unpublished change{status.commits_ahead !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-2 mt-2">
-              <button
-                onClick={handlePublish}
-                disabled={publishing}
-                className="btn btn-primary btn-sm"
-              >
-                {publishing ? (
-                  <>
-                    <span className="loading loading-spinner loading-xs"></span>
-                    Publishing...
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-4 h-4"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-                      />
-                    </svg>
-                    Publish to Main
-                  </>
-                )}
-              </button>
-
-              {status.compare_url && (
-                <a
-                  href={status.compare_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-ghost btn-xs"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="w-3 h-3"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
-                    />
-                  </svg>
-                  View Changes
-                </a>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="alert alert-success py-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="stroke-current shrink-0 h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
+      {loading ? (
+        <div className="status-indicator">
+          <span className="text-sm">Checking status...</span>
+        </div>
+      ) : status?.has_unpublished_changes ? (
+        <>
+          <div className="status-indicator" style={{ background: 'var(--error-light, rgba(220, 38, 38, 0.1))' }}>
+            <svg className="status-icon" width="12" height="12" viewBox="0 0 12 12">
+              <circle cx="6" cy="6" r="4" fill="var(--error)" />
             </svg>
-            <span className="text-sm">All changes published</span>
+            <span className="status-text">
+              <strong>{status.commits_ahead}</strong> unpublished change{status.commits_ahead !== 1 ? 's' : ''}
+            </span>
           </div>
-        )}
 
-        {message && (
-          <div className={`alert ${message.type === 'success' ? 'alert-success' : 'alert-error'} py-2 mt-2`}>
-            <span className="text-sm">{message.text}</span>
-          </div>
-        )}
-      </div>
-    </div>
+          <button
+            onClick={handlePublish}
+            disabled={publishing}
+            className="btn btn-primary btn-block btn-sm"
+            style={{ marginTop: '10px' }}
+          >
+            {publishing ? 'Publishing...' : 'Publish Now'}
+          </button>
+        </>
+      ) : (
+        <div className="status-indicator">
+          <svg className="status-icon" width="12" height="12" viewBox="0 0 12 12">
+            <circle cx="6" cy="6" r="4" fill="var(--success)" />
+          </svg>
+          <span className="status-text">All changes published</span>
+        </div>
+      )}
+
+      {message && (
+        <div className="status-message" style={{
+          marginTop: '10px',
+          padding: '8px 12px',
+          borderRadius: '6px',
+          fontSize: '13px',
+          background: message.type === 'success' ? 'var(--success-light, rgba(0, 208, 132, 0.1))' : 'var(--error-light, rgba(220, 38, 38, 0.1))',
+          color: message.type === 'success' ? 'var(--success)' : 'var(--error)'
+        }}>
+          {message.text}
+        </div>
+      )}
+    </>
   );
 }
