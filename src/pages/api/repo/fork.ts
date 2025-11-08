@@ -135,6 +135,37 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       // Non-fatal - continue with repo creation
     }
 
+    // Register GitHub webhook for automatic cache updates
+    let webhookId: string | undefined;
+    const webhookSecret = import.meta.env.GITHUB_WEBHOOK_SECRET;
+    const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'http://localhost:4321';
+
+    if (webhookSecret) {
+      console.log('[Fork API] Registering GitHub webhook');
+      try {
+        const { data: webhook } = await octokit.rest.repos.createWebhook({
+          owner: userRepo.repo_owner,
+          repo: repoName,
+          config: {
+            url: `${siteUrl}/api/webhooks/github`,
+            content_type: 'json',
+            secret: webhookSecret,
+            insecure_ssl: '0', // Require SSL
+          },
+          events: ['push'], // Only listen to push events
+          active: true,
+        });
+
+        webhookId = webhook.id.toString();
+        console.log('[Fork API] Webhook registered:', webhookId);
+      } catch (webhookError) {
+        console.warn('[Fork API] Webhook registration failed (non-fatal):', webhookError);
+        // Non-fatal - user can manually register webhook later
+      }
+    } else {
+      console.warn('[Fork API] GITHUB_WEBHOOK_SECRET not configured - skipping webhook registration');
+    }
+
     // Update user_repos table with new repo info
     console.log('[Fork API] Updating database with repo info');
     const { error: updateError } = await supabase
@@ -143,6 +174,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         repo_url: newRepo.html_url,
         repo_name: repoName,
         is_template_forked: true,
+        webhook_id: webhookId || null,
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', user.id);

@@ -1,18 +1,23 @@
 # Brand Design System - Quick Start Guide
 
+**Last Updated:** November 8, 2025
+**Version:** 2.0 (Custom Design System)
+
 **Read this first!** Quick reference for implementing Workspace brand consistently.
 
 Full documentation: [04_Brand_Design_System.md](./architecture/04_Brand_Design_System.md)
+Component library: [COMPONENT_LIBRARY.md](./reference/COMPONENT_LIBRARY.md)
 
 ---
 
 ## TL;DR - Key Concepts
 
-- **Personal Workspace = Green** 🌱 (Growth, cultivation)
-- **Commons Workspace = Blue** 🌳 (Trust, verified knowledge)
+- **Personal Workspace = Green** 🌱 (#00D084 - Growth, cultivation)
+- **Commons Workspace = Blue** 🌳 (Trust, verified knowledge - Phase 2)
 - **Safety States = Traffic lights** 🟢🟡🔴
 - **4px spacing grid** - Always use multiples of 4
 - **System fonts** - No custom web fonts (performance)
+- **Custom components** - Using Astro components, not DaisyUI
 
 ---
 
@@ -20,40 +25,44 @@ Full documentation: [04_Brand_Design_System.md](./architecture/04_Brand_Design_S
 
 ### When to Use Green vs Blue
 
-```tsx
-// Personal Workspace context (user's lab bench)
-<button className="btn btn-secondary">  {/* Green */}
+```astro
+---
+import Button from '@/components/ui/redesign/Button.astro';
+---
+
+<!-- Personal Workspace context (user's lab bench) -->
+<Button variant="primary">  {/* Green #00D084 */}
   Create Personal Update
-</button>
+</Button>
 
-// Commons Workspace context (verified forest)
-<button className="btn btn-primary">  {/* Blue */}
+<!-- Commons Workspace context (verified forest) - Phase 2 -->
+<Button variant="secondary">  {/* Blue - Future */}
   Submit to Commons
-</button>
+</Button>
 
-// Bridge/Connection between worlds
-<button className="btn btn-accent">  {/* Purple */}
-  Sync to Commons
-</button>
+<!-- Subtle/Ghost action -->
+<Button variant="ghost">
+  View Details
+</Button>
 ```
 
 ### Safety Protocol Colors
 
 **ONLY use for safety badges, never for general UI:**
 
-```tsx
-// Up to date 🟢
-<span className="badge bg-safety-current text-white">
+```html
+<!-- Up to date 🟢 -->
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
   Safety Current
 </span>
 
-// Needs review 🟡
-<span className="badge bg-safety-pending text-white">
+<!-- Needs review 🟡 -->
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
   Review Required
 </span>
 
-// Action required 🔴
-<span className="badge bg-safety-required text-white">
+<!-- Action required 🔴 -->
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
   Acknowledge Required
 </span>
 ```
@@ -64,64 +73,93 @@ Full documentation: [04_Brand_Design_System.md](./architecture/04_Brand_Design_S
 
 ### Cards
 
-```tsx
-<div className="card bg-base-100 shadow-md rounded-xl p-6
-                border border-base-300 hover:shadow-lg
-                transition-smooth">
-  <h2 className="text-2xl font-semibold mb-2">Card Title</h2>
-  <p className="text-base-content/70">Card description text</p>
+```html
+<!-- Content section card -->
+<div class="content-section">
+  <h2 class="text-2xl font-semibold mb-2">Card Title</h2>
+  <p class="text-gray-600 dark:text-gray-400">Card description text</p>
+</div>
+
+<!-- Stat card -->
+<div class="stat-card">
+  <div class="stat-value">42</div>
+  <div class="stat-label">Projects</div>
 </div>
 ```
 
 ### Buttons
 
-```tsx
-// Primary CTA (Blue - Commons)
-<button className="btn btn-primary rounded-md h-11 px-6 font-semibold">
-  Primary Action
-</button>
+```astro
+---
+import Button from '@/components/ui/redesign/Button.astro';
+---
 
-// Secondary CTA (Green - Personal)
-<button className="btn btn-secondary rounded-md h-11 px-6 font-semibold">
-  Secondary Action
-</button>
+<!-- Primary CTA (Green) -->
+<Button variant="primary" href="/create">
+  Create Project
+</Button>
 
-// Ghost/Subtle
-<button className="btn btn-ghost rounded-md h-11 px-6">
-  Subtle Action
-</button>
+<!-- Secondary -->
+<Button variant="secondary">
+  View Details
+</Button>
+
+<!-- Ghost/Subtle -->
+<Button variant="ghost">
+  Cancel
+</Button>
+
+<!-- With icon -->
+<Button variant="primary">
+  <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+  </svg>
+  New Project
+</Button>
 ```
 
 ### Forms
 
-```tsx
-<input
-  type="text"
-  className="input input-bordered w-full h-11
-             rounded-md border-2 focus:border-primary
-             transition-colors"
-  placeholder="Enter text..."
+```astro
+---
+import FormInput from '@/components/ui/redesign/FormInput.astro';
+import FormTextarea from '@/components/ui/redesign/FormTextarea.astro';
+---
+
+<FormInput
+  name="title"
+  label="Project Title"
+  placeholder="Enter project name..."
+  required
 />
 
-<textarea
-  className="textarea textarea-bordered w-full
-             rounded-md border-2 focus:border-primary
-             transition-colors"
-  rows={4}
+<FormTextarea
+  name="description"
+  label="Description"
+  rows="4"
+  placeholder="Describe your project..."
 />
 ```
 
 ### Badges
 
-```tsx
-// Status badges
-<span className="badge badge-primary">Active</span>
-<span className="badge badge-success">Published</span>
-<span className="badge badge-warning">Pending</span>
-<span className="badge badge-error">Draft</span>
+```html
+<!-- Status badges -->
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-primary-100 text-primary-800">
+  Active
+</span>
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+  Published
+</span>
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+  Pending
+</span>
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
+  Draft
+</span>
 
-// Pill style (fully rounded)
-<span className="badge badge-outline rounded-full">
+<!-- Pill style (fully rounded) -->
+<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border border-gray-300">
   Tag Label
 </span>
 ```
@@ -132,42 +170,46 @@ Full documentation: [04_Brand_Design_System.md](./architecture/04_Brand_Design_S
 
 ### Dashboard Grid
 
-```tsx
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-  <div className="card">Card 1</div>
-  <div className="card">Card 2</div>
-  <div className="card">Card 3</div>
+```html
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  <div class="content-section">Card 1</div>
+  <div class="content-section">Card 2</div>
+  <div class="content-section">Card 3</div>
 </div>
 ```
 
 ### Hero Section
 
-```tsx
-<section className="container mx-auto py-16 text-center">
-  <h1 className="text-5xl font-bold mb-4 text-primary">
+```astro
+---
+import Button from '@/components/ui/redesign/Button.astro';
+---
+
+<section class="container mx-auto py-16 text-center">
+  <h1 class="text-5xl font-bold mb-4 text-primary-600">
     Your Personal Lab Bench 🌱
   </h1>
-  <p className="text-xl text-base-content/70 mb-8 max-w-2xl mx-auto">
+  <p class="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
     Cultivate ideas, grow knowledge, share discoveries
   </p>
-  <button className="btn btn-primary btn-lg">
+  <Button variant="primary" size="lg" href="/start">
     Get Started
-  </button>
+  </Button>
 </section>
 ```
 
 ### Two-Column Layout
 
-```tsx
-<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  {/* Main content (2 columns) */}
-  <div className="lg:col-span-2">
-    <div className="card">Main Content</div>
+```html
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <!-- Main content (2 columns) -->
+  <div class="lg:col-span-2">
+    <div class="content-section">Main Content</div>
   </div>
 
-  {/* Sidebar (1 column) */}
-  <div className="lg:col-span-1">
-    <div className="card">Sidebar</div>
+  <!-- Sidebar (1 column) -->
+  <div class="lg:col-span-1">
+    <div class="content-section">Sidebar</div>
   </div>
 </div>
 ```
@@ -271,49 +313,53 @@ gap-6 = 24px gap (recommended for cards)
 
 ### Empty State
 
-```tsx
-<div className="card bg-base-100 text-center py-12">
-  <div className="text-6xl mb-4">🌱</div>
-  <h3 className="text-xl font-semibold mb-2">No projects yet</h3>
-  <p className="text-base-content/70 mb-6">
+```astro
+---
+import Button from '@/components/ui/redesign/Button.astro';
+---
+
+<div class="content-section text-center py-12">
+  <div class="text-6xl mb-4">🌱</div>
+  <h3 class="text-xl font-semibold mb-2">No projects yet</h3>
+  <p class="text-gray-600 dark:text-gray-400 mb-6">
     Create your first project to get started
   </p>
-  <button className="btn btn-primary">
+  <Button variant="primary" href="/create">
     Create Project
-  </button>
+  </Button>
 </div>
 ```
 
 ### Loading State
 
-```tsx
-<div className="flex items-center justify-center p-12">
-  <span className="loading loading-spinner loading-lg text-primary"></span>
-  <span className="ml-3 text-base-content/70">Loading...</span>
+```html
+<div class="flex items-center justify-center p-12">
+  <div class="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full"></div>
+  <span class="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
 </div>
 ```
 
 ### Error State
 
-```tsx
-<div className="alert alert-error rounded-md">
-  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+```html
+<div class="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+  <svg class="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
-  <span>Something went wrong. Please try again.</span>
+  <span class="text-red-800 dark:text-red-200">Something went wrong. Please try again.</span>
 </div>
 ```
 
 ### Success Toast
 
-```tsx
-<div className="alert alert-success rounded-md">
-  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+```html
+<div class="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+  <svg class="w-6 h-6 text-green-600 dark:text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
-  <span>Project created successfully! 🌱</span>
+  <span class="text-green-800 dark:text-green-200">Project created successfully! 🌱</span>
 </div>
 ```
 
@@ -345,15 +391,31 @@ w-6 h-6 = 24px (feature icons)
 
 ## Dark Mode
 
-Both light and dark themes are configured in `tailwind.config.mjs`.
+Dark mode is handled through Tailwind's `dark:` classes and CSS variables.
 
-**DaisyUI automatically handles theme switching** based on system preference or manual selection.
-
-To manually set theme:
+**Theme switching** is based on the `data-theme` attribute on the `<html>` tag:
 
 ```html
-<html data-theme="workspace-light">  <!-- Light theme -->
-<html data-theme="workspace-dark">   <!-- Dark theme -->
+<html data-theme="light">  <!-- Light theme -->
+<html data-theme="dark">   <!-- Dark theme -->
+```
+
+**In your components**, use Tailwind's dark mode classes:
+
+```html
+<div class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+  Content that adapts to theme
+</div>
+```
+
+**Using CSS variables** (defined in `global.css`):
+
+```css
+.my-component {
+  background: var(--surface-1);     /* Adapts to theme */
+  color: var(--text-primary);       /* Adapts to theme */
+  border: 1px solid var(--border);  /* Adapts to theme */
+}
 ```
 
 ---
@@ -414,14 +476,17 @@ Before considering a feature "done":
 - Read full system: [04_Brand_Design_System.md](./architecture/04_Brand_Design_System.md)
 - Check glossary: [01_Workspace_Language_and_Structure_Glossary.md](./architecture/01_Workspace_Language_and_Structure_Glossary.md)
 
-**DaisyUI components?**
-- [DaisyUI Docs](https://daisyui.com/components/)
+**Component reference?**
+- [Component Library](./reference/COMPONENT_LIBRARY.md) - All custom components with examples
 
 **Tailwind utilities?**
 - [Tailwind CSS Docs](https://tailwindcss.com/docs)
 
 **Icons?**
-- [Heroicons](https://heroicons.com/)
+- [Heroicons](https://heroicons.com/) - Free, open-source icon set
+
+**Design files?**
+- [design/ folder](../design/) - HTML prototypes and design references
 
 ---
 

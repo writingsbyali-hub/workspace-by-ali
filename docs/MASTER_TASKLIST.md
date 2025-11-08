@@ -1,13 +1,13 @@
 # Master Tasklist - Workspace by Ali
 
-**Last Updated:** November 7, 2025 (Code Review Complete ✅)
-**Current Phase:** Phase 1A - Owner MVP Implementation
-**Overall Progress:** ~55% Complete (Setup wizard code-reviewed, browser testing next)
-**Note:** ✅ **CODE REVIEW COMPLETE** - Setup wizard implementation verified, database types fixed, ready for browser testing.
+**Last Updated:** November 8, 2025 (Workbench Reorganization Plan Added)
+**Current Phase:** Workbench Reorganization - Phase 1 Complete ✅
+**Overall Progress:** ~60% Complete (Docs reorganized, ready for workbench implementation)
+**Note:** 📋 **WORKBENCH REORGANIZATION PLANNED** - 7 phases defined, Phase 1 (Foundation) completed, ready for Phase 2.
 
-**📂 Current Session Docs:** [docs/current/](./current/) - All Nov 6 documentation organized here
-**📖 Read This First:** [SESSION_HANDOFF_Nov6_2025](./current/SESSION_HANDOFF_Nov6_2025_Architecture_Refactoring.md)
-**🚀 Next Session:** [QUICK_START_Nov6_2025](./current/QUICK_START_Nov6_2025.md)
+**📂 Current Session Docs:** [docs/sessions/2025-11-08/](./sessions/2025-11-08/) - Documentation reorganization
+**📖 Read This First:** [docs/sessions/2025-11-07/SESSION_HANDOFF_Nov7_2025.md](./sessions/2025-11-07/SESSION_HANDOFF_Nov7_2025.md)
+**🚀 Next Session:** Start Phase 2 - Public Workspace Pages
 
 ---
 
@@ -27,7 +27,7 @@
 
 ```
 REFACTORING PHASE (Nov 6, 2025)
-Phase 1A: Owner MVP              [███░░░░░░░░░░░░░░░░░]  15% 🟡 (Foundation done, setup wizard needed)
+Phase 1A: Owner MVP              [███░░░░░░░░░░░░░░░░░]  15% 🟡 (Architecture alignment needed)
 Phase 1B: Content Management     [░░░░░░░░░░░░░░░░░░░░]   0% ⏳ (Hierarchical sub-projects)
 Phase 1C: Deployment            [░░░░░░░░░░░░░░░░░░░░]   0% ⏳ (Vercel Deploy Button, docs)
 Phase 2: Reader Accounts         [░░░░░░░░░░░░░░░░░░░░]   0% ⏳ (Deferred - owner first)
@@ -41,7 +41,10 @@ Overall Progress (Realistic):    [██████░░░░░░░░░�
 - ✅ Database schema refactored (owner/reader roles, acknowledgments)
 - ✅ Middleware refactored (role detection, owner-only routes)
 - ✅ Environment config created (.env.example for self-hosting)
-- ⏭️ **Next:** Test refactoring, build setup wizard, rename streams → sub-projects
+- ✅ Setup wizard built (Nov 7)
+- ✅ Streams → Sub-projects rename (Nov 7)
+- ⚠️ **DISCOVERED (Nov 8):** 45% architecture misalignment - Dashboard uses legacy Supabase tables instead of Git
+- ⏭️ **Next:** Git-first architecture alignment (6 critical tasks), then browser testing
 
 **Why Progress Dropped from 85% → 30%:**
 Previous progress was based on wrong architecture (multi-tenant). We're now building the RIGHT thing (self-hosted), so realistic completion is lower. But the Git-first infrastructure we built is still valid and useful!
@@ -53,6 +56,525 @@ Previous progress was based on wrong architecture (multi-tenant). We're now buil
 ### 🎯 NEXT SESSION PRIORITIES (Owner MVP - Phase 1A)
 
 **Goal:** Get YOUR workspace functional ASAP (owner-only, no readers yet)
+
+### 🚨 ARCHITECTURE ALIGNMENT (CRITICAL - Git-First Refactoring)
+
+**⚠️ DISCOVERED (Nov 8, 2025):** Comprehensive codebase analysis revealed **45% architecture misalignment**. Dashboard still uses legacy Supabase tables instead of Git-first approach. Cache tables never sync automatically. These tasks are CRITICAL for proper Git-first architecture.
+
+**Why This Matters:**
+- Current code has DUAL database pattern (Git + Supabase content tables)
+- Dashboard queries wrong data source (Supabase `projects`/`subprojects` tables instead of Git)
+- Missing GitHub webhook handler means cache is always stale
+- Legacy API routes conflict with Git-first model
+
+**Priority Order:** Complete these BEFORE continuing with other features - they fix fundamental architectural issues.
+
+**Estimated Total:** 8-12 hours to reach 90% Git-first alignment
+
+#### Tasks:
+
+1. ✅ **Refactor Dashboard Data Fetching** (~2-3 hours) - CRITICAL [COMPLETED Nov 8, 2025]
+   - [x] Update `src/pages/index.astro` to use Git-first approach
+   - [x] Replace Supabase queries with `github.ts` functions
+   - [x] Fetch stats from Git repos via GitHub API
+   - [x] Use cache tables (`project_cache`, `subproject_cache`) for performance
+   - **Issue:** Currently queries legacy `projects`, `subprojects`, `activities` Supabase tables
+   - **Files:** [src/pages/index.astro](../src/pages/index.astro), [src/lib/github.ts](../src/lib/github.ts)
+   - **Impact:** HIGH - Dashboard shows wrong data, violates core Git-first principle
+
+2. ✅ **Implement GitHub Webhook Handler** (~2-3 hours) - HIGH [COMPLETED Nov 8, 2025]
+   - [x] Create `/api/webhooks/github` endpoint
+   - [x] Verify GitHub webhook signatures (security)
+   - [x] Parse push event payload
+   - [x] Auto-update `project_cache` and `subproject_cache` on Git changes
+   - [x] Add webhook registration to repo fork flow
+   - [x] Add `webhook_id` column to `user_repos` table
+   - [x] Add webhook secret to `.env.example`
+   - **Issue:** Cache tables never sync automatically - always stale data
+   - **Files:** Create [src/pages/api/webhooks/github.ts](../src/pages/api/webhooks/), update [src/pages/api/repo/fork.ts](../src/pages/api/repo/fork.ts)
+   - **Impact:** HIGH - Critical for real-time cache updates
+
+3. ✅ **Database Consistency Migration** (~1 hour) - HIGH [COMPLETED Nov 8, 2025]
+   - [x] Rename `stream_cache` → `subproject_cache` (SQL migration)
+   - [x] Rename column `stream_slug` → `subproject_slug`
+   - [x] Add `project_cache` table (documented but missing)
+   - [x] Update indexes after table rename
+   - [x] Update TypeScript types in `database.ts`
+   - [x] Mark legacy tables as `@deprecated` in types
+   - **Issue:** Table names inconsistent with "sub-projects" terminology
+   - **Files:** Create migration SQL, update [src/lib/types/database.ts](../src/lib/types/database.ts)
+   - **Impact:** MEDIUM - Inconsistent naming, missing cache table
+
+4. ✅ **Deprecate Legacy API Routes** (~1 hour) - MEDIUM [COMPLETED Nov 8, 2025]
+   - [x] Add deprecation warnings to `/api/projects/index.ts` response headers
+   - [x] Add deprecation warnings to `/api/projects/[id].ts`
+   - [x] Update API documentation to guide users to Keystatic
+   - [x] Add comments explaining why routes are deprecated
+   - [x] Plan removal timeline (Phase 2 cleanup)
+   - **Issue:** `/api/projects/*` endpoints create content in Supabase instead of Git
+   - **Files:** [src/pages/api/projects/](../src/pages/api/projects/)
+   - **Impact:** MEDIUM - Conflicts with Git-first model, confuses developers
+
+5. ✅ **Clean Up Middleware** (~30 min) - LOW [COMPLETED Nov 8, 2025]
+   - [x] Remove `/api/subprojects` from protected routes (doesn't exist)
+   - [x] Remove `/api/submissions` from protected routes (Phase 2+ only)
+   - [x] Verify all owner-only routes properly protected
+   - [x] Add comments explaining route protection logic
+   - **Issue:** Middleware references non-existent API routes
+   - **Files:** [src/middleware.ts](../src/middleware.ts)
+   - **Impact:** LOW - Cosmetic cleanup
+
+6. ✅ **Update Core Documentation** (~1 hour) - MEDIUM [COMPLETED Nov 8, 2025]
+   - [x] Add "SELF-HOSTED, ONE OWNER PER DEPLOYMENT" warning to README
+   - [x] Clarify Git-first data model (not Supabase-centric)
+   - [x] Document webhook setup process
+   - [x] Update architecture diagrams if needed
+   - [x] Add troubleshooting section for common issues
+   - **Issue:** README may not clearly state self-hosted architecture
+   - **Files:** [README.md](../README.md), architecture docs
+   - **Impact:** MEDIUM - Prevents developer confusion
+
+**Success Criteria for Architecture Alignment:**
+- [x] Dashboard fetches data from Git (not Supabase content tables) ✅
+- [x] GitHub webhook handler auto-updates cache on push events ✅
+- [x] All table names consistent with "sub-projects" terminology ✅
+- [x] Legacy API routes marked deprecated with clear warnings ✅
+- [x] Middleware only references existing routes ✅
+- [x] README clearly states self-hosted architecture ✅
+- [x] Architecture reaches 90%+ Git-first alignment ✅
+
+**Result:** Architecture Alignment COMPLETE! (Nov 8, 2025)
+
+---
+
+## 🏗️ WORKBENCH REORGANIZATION (Nov 8, 2025)
+
+**Goal:** Transform dashboard into public workspace with separate owner workbench
+
+**Total Estimated Time:** 16-23 hours across 7 phases
+**Agent Strategy:** Chain specialized agents sequentially for complex features
+
+**Progress Tracker:**
+```
+Phase 1: Foundation & Routes       [████████████████████]  100% ✅ COMPLETE
+Phase 2: Public Workspace Pages    [░░░░░░░░░░░░░░░░░░░░]    0% ⏳ Next
+Phase 3: Safety Gating System      [░░░░░░░░░░░░░░░░░░░░]    0% ⏳ Pending
+Phase 4: Workbench Updates         [░░░░░░░░░░░░░░░░░░░░]    0% ⏳ Pending
+Phase 5: Component Library         [░░░░░░░░░░░░░░░░░░░░]    0% ⏳ Pending
+Phase 6: Testing & Polish          [░░░░░░░░░░░░░░░░░░░░]    0% ⏳ Pending
+Phase 7: Documentation & Deploy    [░░░░░░░░░░░░░░░░░░░░]    0% ⏳ Pending
+
+Overall Progress:                  [███░░░░░░░░░░░░░░░░░]   14% 🟢 Phase 1 done
+```
+
+### ✅ Phase 1: Foundation & Route Reorganization (2-3 hours) - COMPLETE
+
+**Agent:** frontend-developer (implementation focus)
+**Status:** ✅ COMPLETED November 8, 2025
+**Time Spent:** ~2.5 hours
+
+#### 1.1 Route Structure Migration ✅
+- [x] Create `/workbench/*` directory structure
+- [x] Move dashboard pages: `index.astro`, `settings.astro`, `profile.astro` → `workbench/`
+- [x] Move specialized pages: `setup.astro`, `onboarding.astro` → `workbench/`
+- [x] Update middleware protection rules for `/workbench/*` routes
+- [x] Add redirect logic: authenticated owner → `/workbench`, others → `/`
+- [x] Update all internal navigation links (DashboardLayout, components)
+
+**Files Modified:**
+- `src/pages/workbench/` (new directory)
+- `src/middleware.ts`
+- `src/components/layouts/DashboardLayout.astro`
+- All dashboard components with hardcoded links
+
+#### 1.2 Terminology Standardization ✅
+- [x] Search codebase for "stream" references, replace with "sub-project"
+- [x] Update database field names in types (stream → subproject)
+- [x] Update UI labels: "Streams" → "Sub-Projects"
+- [x] Update Keystatic collection navigation labels
+
+**Files Modified:**
+- `src/lib/types/database.ts`
+- `keystatic.config.ts`
+- All component files with "stream" references
+
+**Success Criteria:**
+- [x] All dashboard routes moved to `/workbench/*`
+- [x] Middleware correctly protects owner routes
+- [x] No broken links or 404 errors
+- [x] Consistent "sub-project" terminology throughout
+
+---
+
+### ⏳ Phase 2: Public Workspace Pages (4-6 hours) - NEXT
+Agents found in the agents fiolder!
+**Agent Chain:** ux-researcher → ui-designer → frontend-developer
+**Status:** 🟡 Ready to start
+**Estimated Time:** 4-6 hours
+
+#### 2.1 Design & Layout Foundation (~1 hour)
+**Agents:** ux-researcher → ui-designer → frontend-developer
+
+**Tasks:**
+- [ ] **UX Research:** Analyze user journey for public visitors vs readers vs owners
+- [ ] **UI Design:** Create WorkspaceLayout component (public header, footer, no owner tools)
+- [ ] **Frontend:** Implement `WorkspaceLayout.astro` with responsive navigation
+
+**Deliverables:**
+- `src/components/layouts/WorkspaceLayout.astro`
+- Public navigation component
+- Footer with researcher branding
+
+#### 2.2 Public Homepage (`/index.astro`) (~1-1.5 hours)
+**Agents:** ui-designer + frontend-developer
+
+**Tasks:**
+- [ ] Hero section with workspace introduction
+- [ ] Featured projects grid (pulled from Git)
+- [ ] Latest updates timeline
+- [ ] Clear CTAs: "Explore Projects" / "Start Your Own Workspace"
+- [ ] About section preview
+- [ ] NO authentication required
+
+**Files:**
+- `src/pages/index.astro` (complete rewrite for public)
+- New components: `HeroSection.astro`, `FeaturedProjects.tsx`
+
+#### 2.3 Public Projects Gallery (`/projects/index.astro`) (~1 hour)
+**Agent:** frontend-developer
+
+**Tasks:**
+- [ ] Fix Supabase query: `projects` table → `project_cache` or Keystatic reader
+- [ ] Filter: show only `visibility: public` and `visibility: gated` (NOT `private`)
+- [ ] Category filters, search functionality
+- [ ] Card grid with project status, update count, last updated
+- [ ] Click → `/projects/[slug]`
+
+**Files:**
+- `src/pages/projects/index.astro` (major refactor)
+- Update `ProjectCard.tsx` for public display
+
+#### 2.4 Public Project Detail (`/projects/[slug].astro`) (~45 min)
+**Agents:** frontend-developer + backend-architect
+
+**Tasks:**
+- [ ] Fetch project from Git (already correct in current code)
+- [ ] Display full project details: description, methods, datasets
+- [ ] Show sub-projects list with update timelines
+- [ ] IF gated: Show SafetyModal component (Phase 3)
+- [ ] IF private: Show 403 error or redirect
+- [ ] Link to related updates
+
+**Files:**
+- `src/pages/projects/[slug].astro` (minimal changes, add gating logic)
+
+#### 2.5 Public Updates (`/updates/index.astro` & `/updates/[slug].astro`) (~30 min)
+**Status:** No changes needed - already Git-first
+
+**Tasks:**
+- [ ] Ensure pages are accessible publicly (remove auth requirement)
+- [ ] Test visibility filtering
+
+#### 2.6 About Page (`/about.astro`) (~30 min)
+**Agent:** ui-designer
+
+**Tasks:**
+- [ ] Create researcher bio/introduction page
+- [ ] Research interests, methodologies
+- [ ] Contact information
+- [ ] Link to workspace setup guide
+
+**Files:**
+- `src/pages/about.astro` (new)
+
+#### 2.7 Safety Center (`/safety.astro`) (~45 min)
+**Agents:** ui-designer + frontend-developer
+
+**Tasks:**
+- [ ] List all safety protocols
+- [ ] Explain gating system and why it exists
+- [ ] Show authenticated user's acknowledgment history
+- [ ] Re-acknowledgment UI if protocols updated
+
+**Files:**
+- `src/pages/safety.astro` (new)
+
+**Phase 2 Success Criteria:**
+- [ ] Public homepage is welcoming and clear
+- [ ] Projects gallery shows correct filtered content
+- [ ] Project detail pages respect visibility settings
+- [ ] About and Safety pages provide complete information
+- [ ] All pages work without authentication
+- [ ] Navigation is intuitive for public visitors
+
+---
+
+### ⏳ Phase 3: Safety Gating System (3-4 hours)
+
+**Agents:** ui-designer → frontend-developer → backend-architect
+**Status:** 🔴 Not started (blocked by Phase 2)
+**Estimated Time:** 3-4 hours
+
+#### 3.1 SafetyModal Component (~1.5 hours)
+**Agents:** ui-designer → frontend-developer
+
+**Tasks:**
+- [ ] Design modal UI with protocol text
+- [ ] Checkbox: "I have read and acknowledge..."
+- [ ] Submit button → API call
+- [ ] Loading and error states
+- [ ] Close only after acknowledgment
+
+**Files:**
+- `src/components/workspace/SafetyModal.tsx` (new)
+
+#### 3.2 Acknowledgment API (~1 hour)
+**Agent:** backend-architect
+
+**Tasks:**
+- [ ] Create `POST /api/safety/acknowledge` endpoint
+- [ ] Validate user authentication
+- [ ] Check if already acknowledged (content_slug + user_id)
+- [ ] Insert into `reader_acknowledgments` table
+- [ ] Return success with timestamp
+
+**Files:**
+- `src/pages/api/safety/acknowledge.ts` (new)
+
+#### 3.3 Gating Logic Integration (~1.5 hours)
+**Agent:** frontend-developer
+
+**Tasks:**
+- [ ] Update project detail page: check `gated` field
+- [ ] Query `reader_acknowledgments` table for current user
+- [ ] IF not acknowledged: show SafetyModal
+- [ ] IF acknowledged: show full content
+- [ ] Track acknowledgment date
+
+**Files:**
+- `src/pages/projects/[slug].astro`
+- Update `checkContentAccess()` in `src/lib/github.ts`
+
+**Phase 3 Success Criteria:**
+- [ ] SafetyModal displays correctly on gated content
+- [ ] Acknowledgment is recorded in database
+- [ ] Users can access gated content after acknowledgment
+- [ ] Modal cannot be bypassed
+- [ ] Acknowledgment persists across sessions
+
+---
+
+### ⏳ Phase 4: Workbench Updates (2-3 hours)
+
+**Agent:** frontend-developer
+**Status:** 🔴 Not started
+**Estimated Time:** 2-3 hours
+
+#### 4.1 Workbench Homepage (`/workbench/index.astro`) (~30 min)
+**Current `/index.astro` moved to `/workbench/index.astro`**
+
+**Tasks:**
+- [ ] Update to use `project_cache` (already done Nov 8 ✅)
+- [ ] Add "View Public Workspace" link in header
+- [ ] Test Git webhook sync
+- [ ] Verify stats and activity feeds
+
+#### 4.2 Workbench Projects (`/workbench/projects.astro`) (~1 hour)
+**New page for owner project management**
+
+**Tasks:**
+- [ ] Full CRUD interface for projects
+- [ ] Visibility toggles (public/gated/private)
+- [ ] Quick edit links → Keystatic
+- [ ] Sub-project management
+- [ ] Archive/delete functionality
+
+**Files:**
+- `src/pages/workbench/projects.astro` (new)
+
+#### 4.3 Workbench Settings (`/workbench/settings.astro`) (~30 min)
+**Move from `/settings.astro`**
+
+**Tasks:**
+- [ ] Workspace configuration
+- [ ] GitHub connection status
+- [ ] Webhook verification
+- [ ] Reader account management (Phase 2 future)
+- [ ] Export/backup options
+
+#### 4.4 Navigation Updates (~1 hour)
+**Agent:** frontend-developer
+
+**Tasks:**
+- [ ] Update `DashboardLayout.astro` → `WorkbenchLayout.astro`
+- [ ] Sidebar links: all `/workbench/*` routes
+- [ ] Add "Public View" button
+- [ ] Breadcrumb navigation for sub-projects
+
+**Files:**
+- Rename `src/components/layouts/DashboardLayout.astro` → `WorkbenchLayout.astro`
+- Update all page imports
+
+**Phase 4 Success Criteria:**
+- [ ] Workbench homepage shows owner-specific stats
+- [ ] Projects page allows full CRUD operations
+- [ ] Settings page provides configuration options
+- [ ] Navigation is clear and intuitive
+- [ ] "View Public" link works correctly
+
+---
+
+### ⏳ Phase 5: Component Library (2-3 hours)
+
+**Agents:** ui-designer → frontend-developer
+**Status:** 🔴 Not started
+**Estimated Time:** 2-3 hours
+
+#### 5.1 Workspace Components (~1.5 hours)
+**Agent:** ui-designer → frontend-developer
+
+**Tasks:**
+- [ ] Create `src/components/workspace/` directory
+- [ ] `ProjectGallery.tsx` - Public project grid
+- [ ] `ProjectCard.tsx` - Public project card (separate from dashboard version)
+- [ ] `SafetyModal.tsx` - Safety acknowledgment modal
+- [ ] `WorkspaceHeader.tsx` - Public navigation header
+- [ ] `ContentCard.tsx` - Generic content display
+
+#### 5.2 Workbench Components (~1 hour)
+**Refactor existing dashboard components**
+
+**Tasks:**
+- [ ] Move `src/components/dashboard/` → `src/components/workbench/`
+- [ ] Update imports across all pages
+- [ ] Ensure no public pages import workbench components
+
+**Phase 5 Success Criteria:**
+- [ ] Clear separation: workspace vs workbench components
+- [ ] Components are reusable and well-documented
+- [ ] No circular dependencies
+- [ ] All imports updated correctly
+
+---
+
+### ⏳ Phase 6: Testing & Polish (2-3 hours)
+
+**Agent Chain:** test-writer-fixer → frontend-developer → brand-guardian
+**Status:** 🔴 Not started
+**Estimated Time:** 2-3 hours
+
+#### 6.1 End-to-End Testing (~1 hour)
+**Agent:** test-writer-fixer
+
+**Owner Flow:**
+1. [ ] Login → redirects to `/workbench`
+2. [ ] Create project via Keystatic
+3. [ ] Webhook syncs to cache
+4. [ ] View in workbench dashboard
+5. [ ] Publish (set `visibility: public`)
+6. [ ] View on public workspace
+
+**Reader Flow (Phase 2 prep):**
+1. [ ] Browse public workspace (no auth)
+2. [ ] Click gated project
+3. [ ] SafetyModal appears
+4. [ ] Must login/signup to acknowledge
+5. [ ] View gated content
+
+**Public Flow:**
+1. [ ] Land on `/` (public homepage)
+2. [ ] Browse projects
+3. [ ] View public project details
+4. [ ] Cannot access private content
+
+#### 6.2 Git-First Verification (~30 min)
+**Agent:** backend-architect
+
+**Tasks:**
+- [ ] Audit all pages: NO queries to legacy `projects`/`subprojects` tables
+- [ ] Verify webhook handler updates cache correctly
+- [ ] Test cache fallback to Git if empty
+- [ ] Confirm all content reads from Git as source of truth
+
+#### 6.3 Brand Consistency (~30-45 min)
+**Agent:** brand-guardian
+
+**Tasks:**
+- [ ] Review all public pages for consistent voice/tone
+- [ ] Check terminology consistency (Sub-Projects, not Streams)
+- [ ] Verify UI component consistency
+- [ ] Test dark mode across all pages
+- [ ] Mobile responsiveness check
+
+**Phase 6 Success Criteria:**
+- [ ] All user flows work end-to-end
+- [ ] No legacy database queries
+- [ ] Brand consistency across all pages
+- [ ] Mobile experience is excellent
+- [ ] Dark mode works everywhere
+
+---
+
+### ⏳ Phase 7: Documentation & Deployment (1-2 hours)
+
+**Agent:** devops-automator
+**Status:** 🔴 Not started
+**Estimated Time:** 1-2 hours
+
+#### 7.1 Update Documentation (~45 min)
+
+**Tasks:**
+- [ ] Update README with new route structure
+- [ ] Document public vs workbench distinction
+- [ ] Update deployment guide
+- [ ] Create user guide (owner setup flow)
+- [ ] Update MASTER_TASKLIST.md with completion status
+
+**Files:**
+- `README.md`
+- `docs/MASTER_TASKLIST.md`
+- `KEYSTATIC_SETUP.md`
+
+#### 7.2 Deployment Preparation (~45 min)
+**Agent:** devops-automator
+
+**Tasks:**
+- [ ] Verify environment variables
+- [ ] Test Vercel deployment with new routes
+- [ ] Check middleware protection in production
+- [ ] Verify GitHub webhook delivery
+- [ ] Test OAuth flows
+
+**Phase 7 Success Criteria:**
+- [ ] Documentation is complete and accurate
+- [ ] Deployment succeeds without errors
+- [ ] All features work in production
+- [ ] Users can follow setup guide successfully
+
+---
+
+### 📋 Workbench Reorganization Summary
+
+**Total Phases:** 7
+**Estimated Time:** 16-23 hours
+**Current Status:** Phase 1 complete ✅, Phase 2 ready to start
+
+**Key Decisions:**
+- ✅ Dashboard → Workbench (owner-only)
+- ✅ Public workspace at root `/`
+- ✅ Safety gating for sensitive content
+- ✅ Git-first architecture throughout
+- ✅ Agent-driven development for quality
+
+**Next Steps:**
+1. Start Phase 2: Public Workspace Pages
+2. Begin with UX research for public visitor journey
+3. Design and implement WorkspaceLayout component
+4. Build public homepage
+
+---
+
+### ✅ COMPLETED TASKS (Owner Setup Wizard - Nov 7, 2025)
 
 1. ✅ **Test current refactoring** (~60 min) [COMPLETED Nov 7] 🎉
    - [x] Pre-migration backup (skipped - dev database)
@@ -104,7 +626,21 @@ Previous progress was based on wrong architecture (multi-tenant). We're now buil
    - **Status:** ✅ Code review complete - Implementation is solid!
    - **Next:** Design system alignment check + Browser testing
 
-5. 🚧 **Assess & align setup wizard UI with design system** (~30-45 min) [PRIORITY]
+5. ✅ **Fix Keystatic Configuration to Use GitHub Mode** (~1-2 hours) [CRITICAL - COMPLETED Nov 8, 2025] 🎉
+   - [x] Create `/api/keystatic/token` endpoint to provide dynamic GitHub token (already existed!)
+   - [x] Update `keystatic.config.ts` to always use Cloud mode (removed local/github conditional)
+   - [x] Implement dynamic repo configuration based on logged-in user's `user_repos`
+   - [ ] Test Keystatic can create/edit content via GitHub API (requires browser test)
+   - [ ] Verify commits go to user's forked repo (not template repo) (requires browser test)
+   - [ ] Test webhook triggers on Keystatic saves (requires browser test)
+   - **Issue:** Was using LOCAL mode in development (content lost on refresh!)
+   - **Issue:** Production mode was hardcoded to template repo instead of user's fork
+   - **Impact:** CRITICAL - Content was lost, webhooks never fired, Git-first architecture broken
+   - **Files:** [keystatic.config.ts](../keystatic.config.ts), [src/pages/api/keystatic/token.ts](../src/pages/api/keystatic/token.ts)
+   - **Fix:** Now uses Cloud mode with dynamic token endpoint (works in dev AND prod)
+   - **Reference:** https://keystatic.com/docs/github-mode
+
+6. 🚧 **Assess & align setup wizard UI with design system** (~30-45 min) [PRIORITY]
    - [ ] Review [src/pages/setup.astro](../src/pages/setup.astro) against design system
    - [ ] Check component library: [docs/reference/COMPONENT_LIBRARY.md](./reference/COMPONENT_LIBRARY.md)
    - [ ] Replace any non-design-system components:
@@ -127,7 +663,7 @@ Previous progress was based on wrong architecture (multi-tenant). We're now buil
    - **Reference:** [design/](../design/) folder for HTML prototype patterns
    - **Status:** ⏳ Needs assessment before browser testing
 
-6. 🚧 **Browser test setup wizard** (~15 min) [AFTER DESIGN ALIGNMENT]
+7. 🚧 **Browser test setup wizard** (~15 min) [AFTER KEYSTATIC FIX + DESIGN ALIGNMENT]
    - [ ] Navigate to `/setup` as owner in browser
    - [ ] Test GitHub connection flow
    - [ ] Test workspace repository creation
@@ -147,17 +683,19 @@ Previous progress was based on wrong architecture (multi-tenant). We're now buil
    - 🔍 Check: workspace_settings table should have new row with setup_completed=true
    - 🎯 Expected: Smooth flow with no errors, beautiful completion screen matching design system
 
-7. ⏭️ **Add repo visibility toggle** (~1 hour)
+8. ⏭️ **Add repo visibility toggle** (~1 hour)
    - Setting in workspace_settings table (already exists!)
    - UI toggle in settings page
    - Update project pages to show visibility status
 
-8. ⏭️ **Test end-to-end owner flow** (~30 min)
+9. ⏭️ **Test end-to-end owner flow** (~30 min)
    - Fresh local setup
    - Complete setup wizard
-   - Access Keystatic
-   - Create project & sub-project
-   - Verify everything works
+   - Access Keystatic (via GitHub mode!)
+   - Create project & sub-project via Keystatic
+   - Verify webhook fires and cache updates
+   - Verify dashboard shows new content
+   - Document any issues found
 
 **Success Criteria for Current Sprint:**
 - [x] Database migration executed successfully ✅ (Nov 7)

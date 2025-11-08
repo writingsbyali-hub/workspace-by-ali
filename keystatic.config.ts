@@ -15,22 +15,49 @@ import { config, collection, fields } from '@keystatic/core';
  */
 
 export default config({
-  storage:
-    import.meta.env.MODE === 'development'
-      ? {
-          // Local mode for development/testing
-          kind: 'local' as const,
-        }
-      : {
-          // GitHub mode for production
-          kind: 'github' as const,
-          repo: {
-            // These will be set dynamically based on the logged-in user
-            // The token API endpoint provides both token and repo info
-            owner: import.meta.env.PUBLIC_GITHUB_REPO_OWNER || 'workspace-by-ali',
-            name: import.meta.env.PUBLIC_GITHUB_REPO_NAME || 'workspace-template',
-          },
-        },
+  /**
+   * CRITICAL: Git-First Architecture - GitHub Storage Mode
+   *
+   * This workspace uses GitHub as the source of truth for all content.
+   * Keystatic commits directly to the owner's GitHub repository.
+   *
+   * Storage Mode: GITHUB
+   * - Commits directly to owner's GitHub repo (self-hosted model)
+   * - Uses /api/keystatic/token endpoint to get GitHub access token
+   * - Token endpoint returns owner's encrypted GitHub token from database
+   * - Repo configured via environment variables (set once per deployment)
+   * - Triggers GitHub webhooks on save → auto-updates cache tables
+   * - Works in both development AND production
+   *
+   * Self-Hosted Model:
+   * - ONE owner per deployment (person who deployed the workspace)
+   * - Owner sets their repo in environment variables:
+   *   - PUBLIC_KEYSTATIC_GITHUB_REPO_OWNER (GitHub username)
+   *   - PUBLIC_KEYSTATIC_GITHUB_REPO_NAME (repo name, e.g., "workspace-alice")
+   * - These are set once during deployment setup
+   * - Readers cannot access Keystatic (middleware protection)
+   *
+   * Why GitHub Mode (Not Cloud)?
+   * - Cloud mode requires Keystatic Cloud subscription
+   * - GitHub mode is free and self-hosted
+   * - Direct commits to your own GitHub repo
+   * - Full control over content and history
+   *
+   * Token Endpoint: /api/keystatic/token
+   * Returns: { token: string }
+   *
+   * FIXED (Nov 8, 2025):
+   * - Was using local mode in dev (content lost!)
+   * - Was using cloud mode (requires paid subscription!)
+   * - Now uses github mode with env vars (self-hosted, free)
+   */
+  storage: {
+    kind: 'github' as const,
+    repo: {
+      owner: import.meta.env.PUBLIC_KEYSTATIC_GITHUB_REPO_OWNER || '',
+      name: import.meta.env.PUBLIC_KEYSTATIC_GITHUB_REPO_NAME || '',
+    },
+  },
 
   collections: {
     // Projects Collection (Top Level)

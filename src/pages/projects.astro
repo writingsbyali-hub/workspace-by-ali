@@ -1,76 +1,119 @@
 ---
-import DashboardLayout from '../components/layouts/DashboardLayout.astro';
-import EmptyState from '../components/ui/EmptyState';
-import ProjectCard from '../components/ui/ProjectCard';
+import WorkspaceLayout from '../components/layouts/WorkspaceLayout.astro';
+import { createReader } from '@keystatic/core/reader';
+import keystaticConfig from '../../keystatic.config';
 import { createSupabaseServer } from '../lib/supabaseServer';
 
-// Get user
+// Initialize Keystatic reader to fetch content from Git (source of truth)
+const reader = createReader(process.cwd(), keystaticConfig);
+
+// Fetch all projects from Git
+const projectSlugs = await reader.collections.projects.list();
+
+// Fetch project details - only public and gated projects (not private)
+const projectsPromises = projectSlugs.map(async (slug) => {
+  const project = await reader.collections.projects.read(slug);
+  if (!project) return null;
+
+  // Only show public and gated projects on public page
+  if (project.visibility === 'private') return null;
+
+  // Count sub-projects for this project
+  const subProjectSlugs = await reader.collections.subProjects.list();
+  const subProjects = await Promise.all(
+    subProjectSlugs.map(async (subSlug) => {
+      const subProject = await reader.collections.subProjects.read(subSlug);
+      return subProject?.projectSlug === slug ? subProject : null;
+    })
+  );
+  const subProjectCount = subProjects.filter(sp => sp !== null).length;
+
+  // Count updates for this project
+  const updateSlugs = await reader.collections.updates.list();
+  const updates = await Promise.all(
+    updateSlugs.map(async (updateSlug) => {
+      const update = await reader.collections.updates.read(updateSlug);
+      return update?.projectSlug === slug ? update : null;
+    })
+  );
+  const updateCount = updates.filter(u => u !== null).length;
+
+  return {
+    slug,
+    title: project.title,
+    description: project.description,
+    category: project.stream || project.category || 'Research',
+    visibility: project.visibility,
+    gated: project.gated || false,
+    status: project.status || 'active',
+    subProjectCount,
+    updateCount,
+    tags: project.tags || [],
+  };
+});
+
+const allProjects = (await Promise.all(projectsPromises)).filter(p => p !== null);
+
+// Organize projects by category
+const categories = [...new Set(allProjects.map(p => p.category))];
+
+// Get user info (optional - for showing owner badge)
 const supabase = createSupabaseServer(Astro.cookies);
 const { data: { user } } = await supabase.auth.getUser();
 
-if (!user) {
-  return Astro.redirect('/login');
+let isOwner = false;
+if (user) {
+  const { data: workspaceSettings } = await supabase
+    .from('workspace_settings')
+    .select('owner_id')
+    .single();
+  isOwner = user.id === workspaceSettings?.owner_id;
 }
-
-// Fetch projects from database
-const { data: projects, error: projectsError } = await supabase
-  .from('projects')
-  .select('*')
-  .eq('owner', user.id)
-  .order('created_at', { ascending: false });
-
-if (projectsError) {
-  console.error('Error fetching projects:', projectsError);
-}
-
-const publicProjects = (projects || []).filter(p => p.visibility === 'public');
-const privateProjects = (projects || []).filter(p => p.visibility === 'private');
 ---
 
-<DashboardLayout title="Projects - Workspace">
+<WorkspaceLayout title="Projects - Workspace" description="Explore all research projects and experiments">
   <!-- Page Header -->
-  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-    <div>
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-        Projects
-      </h1>
-      <p class="text-base text-gray-600 dark:text-gray-400">
-        Manage your research projects and workspaces
+  <div class="page-header">
+    <div class="header-content">
+      <h1 class="page-title">Research Projects</h1>
+      <p class="page-description">
+        Explore active research projects, experiments, and investigations. Each project contains sub-projects, methods, datasets, and ongoing updates.
       </p>
     </div>
 
-    <a href="/projects/new" class="btn-primary">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-      </svg>
-      New Project
-    </a>
+    {isOwner && (
+      <a href="/workbench/projects" class="btn-owner">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+        </svg>
+        Manage Projects
+      </a>
+    )}
   </div>
 
-  <!-- Stats Summary -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+  <!-- Stats -->
+  <div class="stats-grid">
     <div class="stat-card">
-      <div class="stat-label">Total Projects</div>
-      <div class="stat-value">{projects?.length || 0}</div>
-      <div class="stat-description">Active workspaces</div>
+      <div class="stat-number">{allProjects.length}</div>
+      <div class="stat-label">Active Projects</div>
     </div>
-
     <div class="stat-card">
-      <div class="stat-label">Public</div>
-      <div class="stat-value">{publicProjects.length}</div>
-      <div class="stat-description">Visible to everyone</div>
+      <div class="stat-number">{categories.length}</div>
+      <div class="stat-label">Research Categories</div>
     </div>
-
     <div class="stat-card">
-      <div class="stat-label">Private</div>
-      <div class="stat-value">{privateProjects.length}</div>
-      <div class="stat-description">Only you can see</div>
+      <div class="stat-number">{allProjects.reduce((sum, p) => sum + p.subProjectCount, 0)}</div>
+      <div class="stat-label">Sub-Projects</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">{allProjects.reduce((sum, p) => sum + p.updateCount, 0)}</div>
+      <div class="stat-label">Total Updates</div>
     </div>
   </div>
 
   <!-- Search & Filters -->
-  <div class="flex flex-col sm:flex-row gap-3 mb-6">
-    <div class="flex-1 relative">
+  <div class="filters">
+    <div class="search-box">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="search-icon">
         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
       </svg>
@@ -81,50 +124,98 @@ const privateProjects = (projects || []).filter(p => p.visibility === 'private')
         id="projectSearch"
       />
     </div>
-    <div class="flex gap-2">
-      <select class="filter-btn" id="categoryFilter">
-        <option value="">All Categories</option>
-        <option value="research">Research</option>
-        <option value="development">Development</option>
-        <option value="design">Design</option>
-        <option value="documentation">Documentation</option>
-        <option value="experiment">Experiment</option>
-      </select>
-      <select class="filter-btn" id="visibilityFilter">
-        <option value="">All Projects</option>
-        <option value="public">Public</option>
-        <option value="private">Private</option>
-      </select>
-    </div>
+
+    <select class="filter-select" id="categoryFilter">
+      <option value="">All Categories</option>
+      {categories.map(cat => (
+        <option value={cat}>{cat}</option>
+      ))}
+    </select>
+
+    <select class="filter-select" id="statusFilter">
+      <option value="">All Status</option>
+      <option value="active">Active</option>
+      <option value="completed">Completed</option>
+      <option value="paused">Paused</option>
+    </select>
   </div>
 
   <!-- Projects Grid -->
-  {projects && projects.length > 0 ? (
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="projectsGrid">
-      {projects.map((project) => (
-        <ProjectCard client:load project={project} />
+  {allProjects.length > 0 ? (
+    <div class="projects-grid" id="projectsGrid">
+      {allProjects.map((project) => (
+        <article class="project-card" data-category={project.category} data-status={project.status}>
+          <div class="project-header">
+            <span class="project-category">{project.category}</span>
+            <div class="project-badges">
+              {project.gated && (
+                <span class="badge badge-warning">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                  Gated
+                </span>
+              )}
+              {project.status && project.status !== 'active' && (
+                <span class="badge badge-muted">{project.status}</span>
+              )}
+            </div>
+          </div>
+
+          <h3 class="project-title">
+            <a href={`/projects/${project.slug}`}>{project.title}</a>
+          </h3>
+
+          <p class="project-description">{project.description}</p>
+
+          {project.tags.length > 0 && (
+            <div class="project-tags">
+              {project.tags.slice(0, 3).map((tag) => (
+                <span class="tag">{tag}</span>
+              ))}
+              {project.tags.length > 3 && (
+                <span class="tag-more">+{project.tags.length - 3}</span>
+              )}
+            </div>
+          )}
+
+          <div class="project-meta">
+            <div class="meta-item">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 7.125C2.25 6.504 2.754 6 3.375 6h6c.621 0 1.125.504 1.125 1.125v3.75c0 .621-.504 1.125-1.125 1.125h-6a1.125 1.125 0 01-1.125-1.125v-3.75zM14.25 8.625c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-8.25zM3.75 16.125c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-2.25z" />
+              </svg>
+              {project.subProjectCount} sub-{project.subProjectCount === 1 ? 'project' : 'projects'}
+            </div>
+            <div class="meta-item">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {project.updateCount} {project.updateCount === 1 ? 'update' : 'updates'}
+            </div>
+          </div>
+
+          <a href={`/projects/${project.slug}`} class="project-link">
+            View Project →
+          </a>
+        </article>
       ))}
     </div>
   ) : (
-    <div class="content-section">
-      <EmptyState
-        client:load
-        title="No projects yet"
-        description="Create your first project to start organizing your research and updates."
-        action={{
-          label: "Create Your First Project",
-          href: "/projects/new"
-        }}
-      />
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="empty-icon">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+      </svg>
+      <h2>No Projects Yet</h2>
+      <p>This workspace hasn't published any public projects yet. Check back soon!</p>
     </div>
   )}
 
-  <!-- Client-side filtering script -->
+  <!-- Client-side filtering -->
   <script is:inline>
     if (typeof window !== 'undefined') {
       const searchInput = document.getElementById('projectSearch');
       const categoryFilter = document.getElementById('categoryFilter');
-      const visibilityFilter = document.getElementById('visibilityFilter');
+      const statusFilter = document.getElementById('statusFilter');
       const projectsGrid = document.getElementById('projectsGrid');
 
       function filterProjects() {
@@ -132,26 +223,352 @@ const privateProjects = (projects || []).filter(p => p.visibility === 'private')
 
         const searchTerm = searchInput?.value.toLowerCase() || '';
         const category = categoryFilter?.value || '';
-        const visibility = visibilityFilter?.value || '';
+        const status = statusFilter?.value || '';
 
-        const cards = projectsGrid.querySelectorAll('[href^="/projects/"]');
+        const cards = projectsGrid.querySelectorAll('.project-card');
 
         cards.forEach(card => {
           const title = card.querySelector('.project-title')?.textContent.toLowerCase() || '';
-          const projectCategory = card.querySelector('.project-tag')?.textContent.toLowerCase() || '';
-          const projectVisibility = card.querySelector('.meta-item')?.textContent.includes('Private') ? 'private' : 'public';
+          const description = card.querySelector('.project-description')?.textContent.toLowerCase() || '';
+          const cardCategory = card.getAttribute('data-category') || '';
+          const cardStatus = card.getAttribute('data-status') || '';
 
-          const matchesSearch = title.includes(searchTerm);
-          const matchesCategory = !category || projectCategory === category;
-          const matchesVisibility = !visibility || projectVisibility === visibility;
+          const matchesSearch = title.includes(searchTerm) || description.includes(searchTerm);
+          const matchesCategory = !category || cardCategory === category;
+          const matchesStatus = !status || cardStatus === status;
 
-          card.style.display = (matchesSearch && matchesCategory && matchesVisibility) ? 'flex' : 'none';
+          card.style.display = (matchesSearch && matchesCategory && matchesStatus) ? 'flex' : 'none';
         });
       }
 
       searchInput?.addEventListener('input', filterProjects);
       categoryFilter?.addEventListener('change', filterProjects);
-      visibilityFilter?.addEventListener('change', filterProjects);
+      statusFilter?.addEventListener('change', filterProjects);
     }
   </script>
-</DashboardLayout>
+</WorkspaceLayout>
+
+<style>
+  /* Page Header */
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 3rem;
+    gap: 2rem;
+  }
+
+  .header-content {
+    flex: 1;
+  }
+
+  .page-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .page-description {
+    font-size: 1.125rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    max-width: 700px;
+  }
+
+  .btn-owner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--primary);
+    color: white;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-owner:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Stats Grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+
+  .stat-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    text-align: center;
+  }
+
+  .stat-number {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-label {
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  /* Filters */
+  .filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .search-box {
+    flex: 1;
+    min-width: 250px;
+    position: relative;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 0.75rem 1rem 0.75rem 3rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .filter-select {
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    cursor: pointer;
+  }
+
+  .filter-select:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  /* Projects Grid */
+  .projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .project-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    transition: all 0.2s;
+  }
+
+  .project-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  }
+
+  .project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .project-category {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: var(--primary-bg);
+    color: var(--primary);
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .project-badges {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
+    border: 1px solid var(--warning);
+  }
+
+  .badge-muted {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+  }
+
+  .project-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+
+  .project-title a {
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .project-title a:hover {
+    color: var(--primary);
+  }
+
+  .project-description {
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    flex: 1;
+  }
+
+  .project-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .tag {
+    padding: 0.25rem 0.625rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .tag-more {
+    padding: 0.25rem 0.625rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .project-meta {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+
+  .project-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    transition: color 0.2s;
+    align-self: flex-end;
+  }
+
+  .project-link:hover {
+    color: var(--primary-dark);
+  }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+  }
+
+  .empty-icon {
+    width: 4rem;
+    height: 4rem;
+    color: var(--text-muted);
+    margin: 0 auto 1rem;
+  }
+
+  .empty-state h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-state p {
+    color: var(--text-muted);
+    font-size: 1rem;
+  }
+
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
+    .page-header {
+      flex-direction: column;
+    }
+
+    .page-title {
+      font-size: 2rem;
+    }
+
+    .filters {
+      flex-direction: column;
+    }
+
+    .search-box {
+      min-width: 100%;
+    }
+
+    .projects-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

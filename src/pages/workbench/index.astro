@@ -1,0 +1,199 @@
+---
+import DashboardLayout from '../../components/layouts/DashboardLayout.astro';
+import WelcomeHeader from '../../components/dashboard/WelcomeHeader';
+import StatsBar from '../../components/dashboard/StatsBar';
+import TaskList from '../../components/dashboard/TaskList';
+import NotificationList from '../../components/dashboard/NotificationList';
+import QuickActions from '../../components/dashboard/QuickActions';
+import GettingStarted from '../../components/dashboard/GettingStarted';
+import ActivityLog from '../../components/ui/ActivityLog';
+import PublishWidget from '../../components/ui/PublishWidget';
+import { createSupabaseServer } from '../../lib/supabaseServer';
+import { getTasks, getNotifications } from '../../lib/github';
+
+// Get user
+const supabase = createSupabaseServer(Astro.cookies);
+const { data: { user } } = await supabase.auth.getUser();
+
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+// Get user's first name or email
+const userName = user.user_metadata?.name?.split(' ')[0] || user.email?.split('@')[0] || 'there';
+
+// Check if user is the workspace owner
+// For now, assume the logged-in user is the owner
+// In a full implementation, this would check against workspace ownership
+const isOwner = true; // TODO: Implement proper ownership check
+
+// Fetch data from Git-first cache tables (populated by GitHub webhook)
+// This is the correct architecture - content lives in Git, cache provides performance
+const { data: projectCache } = await supabase
+  .from('project_cache')
+  .select('id, project_slug, title, last_updated, status')
+  .eq('user_id', user.id);
+
+const { data: subprojectCache } = await supabase
+  .from('subproject_cache')
+  .select('id, project_id, title, last_updated')
+  .in('project_id', (projectCache || []).map(p => p.id));
+
+// Get user's GitHub repo info
+const { data: userRepo } = await supabase
+  .from('user_repos')
+  .select('github_token, repo_owner, repo_name')
+  .eq('user_id', user.id)
+  .single();
+
+// If cache is empty and user has GitHub token, fetch directly from Git
+// (This is a fallback until webhook populates cache automatically)
+let projectSlugs: string[] = [];
+let subprojectSlugs: string[] = [];
+let updateSlugs: string[] = [];
+let docSlugs: string[] = [];
+
+if (userRepo?.github_token) {
+  const { listProjects, listSubProjects, listUpdates, listDocs } = await import('../../lib/github');
+
+  if (projectCache && projectCache.length === 0) {
+    // Cache is empty, fetch from GitHub directly
+    projectSlugs = await listProjects(userRepo.github_token, userRepo.repo_owner, userRepo.repo_name);
+  }
+
+  if (subprojectCache && subprojectCache.length === 0) {
+    subprojectSlugs = await listSubProjects(userRepo.github_token, userRepo.repo_owner, userRepo.repo_name);
+  }
+
+  // Always fetch updates and docs count from Git (no cache for these yet)
+  updateSlugs = await listUpdates(userRepo.github_token, userRepo.repo_owner, userRepo.repo_name);
+  docSlugs = await listDocs(userRepo.github_token, userRepo.repo_owner, userRepo.repo_name);
+}
+
+// Calculate stats from Git-first data
+const stats = {
+  projects: (projectCache?.length || 0) + projectSlugs.length,
+  subprojects: (subprojectCache?.length || 0) + subprojectSlugs.length,
+  updates: updateSlugs.length,
+  documents: docSlugs.length,
+};
+
+// Fetch recent activities from Git (updates) instead of legacy activities table
+let recentActivities: any[] = [];
+
+if (userRepo?.github_token && updateSlugs.length > 0) {
+  const { fetchUpdateFromGit } = await import('../../lib/github');
+
+  // Fetch the most recent updates (up to 5)
+  const recentUpdateSlugs = updateSlugs.slice(0, 5);
+  const updatePromises = recentUpdateSlugs.map(slug =>
+    fetchUpdateFromGit(userRepo.github_token, userRepo.repo_owner, userRepo.repo_name, slug)
+  );
+
+  const updates = await Promise.all(updatePromises);
+
+  recentActivities = updates
+    .filter(update => update !== null)
+    .map((update) => ({
+      id: update!.slug,
+      title: update!.title,
+      description: update!.content?.substring(0, 150),
+      timestamp: new Date(update!.date),
+      type: update!.type || 'update',
+    }));
+}
+
+// Fetch GitHub tasks and notifications
+let tasks: any[] = [];
+let notifications: any[] = [];
+
+if (userRepo?.github_token) {
+  try {
+    tasks = await getTasks(userRepo.github_token, userRepo.repo_owner, userRepo.repo_name);
+    notifications = await getNotifications(userRepo.github_token);
+  } catch (error) {
+    console.error('Error fetching GitHub tasks/notifications:', error);
+    // Use empty arrays as fallback
+  }
+}
+---
+
+<DashboardLayout title="Workbench - Workspace">
+  <!-- Welcome Header -->
+  <WelcomeHeader client:load userName={userName} />
+
+  <!-- Compact Stats Bar (Phase 2: Less prominent) -->
+  <StatsBar
+    client:load
+    projects={stats.projects}
+    subprojects={stats.subprojects}
+    updates={stats.updates}
+    documents={stats.documents}
+  />
+
+  <!-- Main Content -->
+  <div class="dashboard-content">
+    <!-- Task List - PROMINENT (Phase 2: Highest Priority) -->
+    <!-- Context-aware: Only show create button for owners -->
+    <TaskList
+      client:load
+      tasks={tasks}
+      maxVisible={5}
+      showCreateButton={isOwner}
+    />
+
+    <!-- Recent Updates -->
+    <div class="content-section">
+      <div class="section-header">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-primary">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <h2 class="section-title">Recent Updates</h2>
+      </div>
+      <ActivityLog client:load activities={recentActivities} limit={4} />
+    </div>
+  </div>
+
+  <!-- Right Sidebar - Tool Panel -->
+  <div slot="sidebar-right">
+    {isOwner && (
+      <>
+        <!-- Notifications Section -->
+        <div class="sidebar-section">
+          <NotificationList
+            client:load
+            notifications={notifications}
+            maxVisible={5}
+            showMarkAllRead={true}
+          />
+        </div>
+
+        <!-- Quick Actions Section -->
+        <div class="sidebar-section">
+          <QuickActions client:load />
+        </div>
+
+        <!-- Publish Status Section (Compact) -->
+        <div class="sidebar-section compact">
+          <PublishWidget client:load />
+        </div>
+      </>
+    )}
+
+    {!isOwner && (
+      <!-- Visitor View: Show how to contribute -->
+      <div class="sidebar-section">
+        <h3 class="section-title">Want to Contribute?</h3>
+        <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+          Check out the tasks to see how you can help!
+        </p>
+        <a href="#tasks" class="btn btn-primary btn-block">View Open Tasks</a>
+      </div>
+    )}
+
+    <!-- Getting Started Section (Highlighted) -->
+    <div class="sidebar-section highlight">
+      <GettingStarted client:load />
+    </div>
+  </div>
+</DashboardLayout>

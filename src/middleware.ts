@@ -8,23 +8,32 @@
 import { defineMiddleware } from 'astro:middleware';
 import { createSupabaseServer } from './lib/supabaseServer';
 
-// Routes that require authentication
-const PROTECTED_ROUTES = [
-  '/',
-  '/projects',
-  '/api/projects',
-  '/api/subprojects',
-  '/api/submissions',
+// ============================================================================
+// ROUTE PROTECTION CONFIGURATION
+// ============================================================================
+
+// Public routes - accessible to everyone without authentication
+// These routes show the public-facing workspace (research showcase)
+const PUBLIC_ROUTES = [
+  '/',           // Public workspace homepage
+  '/projects',   // Public project gallery
+  '/updates',    // Public updates feed
+  '/docs',       // Public documentation
+  '/about',      // About the researcher
+  '/safety',     // Safety protocols and acknowledgments
+  '/start',      // Getting started guide for visitors
 ];
 
 // Routes that require OWNER role (readers cannot access)
+// Owner is the person who deployed this workspace instance
+// Readers (guests) are visitors who can view content but not manage workspace
 const OWNER_ONLY_ROUTES = [
-  '/setup',
-  '/settings',
-  '/keystatic',
-  '/api/repo',
-  '/api/publish',
-  '/api/workspace',
+  '/workbench',      // Owner dashboard/command center
+  '/keystatic',      // Content management via Keystatic CMS
+  '/api/repo',       // GitHub repository management (fork, connect)
+  '/api/publish',    // Publish/deploy controls
+  '/api/workspace',  // Workspace configuration API
+  '/api/projects',   // Legacy API (deprecated - Git-first architecture)
 ];
 
 // Routes that should redirect to /projects if already authenticated
@@ -82,8 +91,8 @@ export const onRequest = defineMiddleware(async ({ cookies, url, redirect, local
 
   // Check if new user needs to complete onboarding
   // Skip if already on onboarding, login, or API routes
-  const skipOnboardingCheck = pathname.startsWith('/onboarding') ||
-                                pathname.startsWith('/setup') ||
+  const skipOnboardingCheck = pathname.startsWith('/workbench/onboarding') ||
+                                pathname.startsWith('/workbench/setup') ||
                                 pathname.startsWith('/login') ||
                                 pathname.startsWith('/reader-signup') ||
                                 pathname.startsWith('/api/') ||
@@ -104,17 +113,19 @@ export const onRequest = defineMiddleware(async ({ cookies, url, redirect, local
 
       // Redirect to setup wizard if GitHub not connected or repo not forked
       if (!githubConnected || !repoForked) {
-        return redirect('/setup', 302);
+        return redirect('/workbench/setup', 302);
       }
     }
     // READER: No additional setup required (just auth)
     // Readers can access content immediately after signup
   }
 
-  // If on auth routes (login, reader-signup) and already authenticated, redirect to projects
+  // If on auth routes (login, reader-signup) and already authenticated, redirect appropriately
   if (AUTH_ROUTES.some(route => pathname.startsWith(route))) {
     if (user) {
-      return redirect('/projects', 302);
+      // Owner → workbench, Reader → public workspace
+      const redirectPath = locals.userRole === 'owner' ? '/workbench' : '/';
+      return redirect(redirectPath, 302);
     }
   }
 
@@ -132,15 +143,8 @@ export const onRequest = defineMiddleware(async ({ cookies, url, redirect, local
     }
   }
 
-  // Protect routes that require authentication (both owner and reader can access)
-  // Check exact match for root, or startsWith for paths with subpaths
-  const isProtected = pathname === '/' || PROTECTED_ROUTES.some(route => route !== '/' && pathname.startsWith(route));
-
-  if (isProtected && !user) {
-    // Store the original URL to redirect back after login
-    const redirectTo = encodeURIComponent(pathname + url.search);
-    return redirect(`/login?redirect=${redirectTo}`, 302);
-  }
+  // Public routes are accessible to everyone - no authentication required
+  // No additional protection needed for PUBLIC_ROUTES
 
   // Add security headers to response
   const response = await next();

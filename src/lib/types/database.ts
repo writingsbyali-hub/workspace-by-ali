@@ -17,6 +17,13 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      // =========================================================================
+      // LEGACY TABLES (Deprecated - Git-first architecture)
+      // =========================================================================
+      // These tables are deprecated in favor of Git-first content storage
+      // Content now lives in Git, cached in project_cache/subproject_cache
+      // DO NOT use these tables for new features - they will be removed in Phase 2
+
       users: {
         Row: {
           id: string
@@ -52,6 +59,11 @@ export interface Database {
           last_signin?: string | null
         }
       }
+      /**
+       * @deprecated Legacy Supabase-centric content table
+       * Use Git-first approach instead: content lives in GitHub, cached in project_cache
+       * Will be removed in Phase 2
+       */
       projects: {
         Row: {
           id: string
@@ -81,6 +93,11 @@ export interface Database {
           created_at?: string
         }
       }
+      /**
+       * @deprecated Legacy Supabase-centric content table
+       * Use Git-first approach instead: content lives in GitHub, cached in subproject_cache
+       * Will be removed in Phase 2
+       */
       subprojects: {
         Row: {
           id: string
@@ -209,6 +226,110 @@ export interface Database {
           created_at?: string
         }
       }
+      // =========================================================================
+      // GIT-FIRST CACHE TABLES
+      // =========================================================================
+      // Cache tables for fast dashboard queries
+      // Source of truth is Git, these are synced via GitHub webhooks
+
+      project_cache: {
+        Row: {
+          id: string
+          user_id: string
+          repo_url: string
+          project_slug: string
+          title: string | null
+          description: string | null
+          visibility: 'public' | 'gated' | 'private'
+          gated: boolean
+          safety_code: string | null
+          stream: string | null
+          tags: string[] | null
+          status: 'draft' | 'active' | 'archived'
+          stream_count: number
+          last_updated: string | null
+          synced_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          repo_url: string
+          project_slug: string
+          title?: string | null
+          description?: string | null
+          visibility?: 'public' | 'gated' | 'private'
+          gated?: boolean
+          safety_code?: string | null
+          stream?: string | null
+          tags?: string[] | null
+          status?: 'draft' | 'active' | 'archived'
+          stream_count?: number
+          last_updated?: string | null
+          synced_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          repo_url?: string
+          project_slug?: string
+          title?: string | null
+          description?: string | null
+          visibility?: 'public' | 'gated' | 'private'
+          gated?: boolean
+          safety_code?: string | null
+          stream?: string | null
+          tags?: string[] | null
+          status?: 'draft' | 'active' | 'archived'
+          stream_count?: number
+          last_updated?: string | null
+          synced_at?: string
+          created_at?: string
+        }
+      }
+      subproject_cache: {
+        Row: {
+          id: string
+          project_id: string
+          subproject_slug: string
+          title: string | null
+          description: string | null
+          gated: boolean
+          update_count: number
+          last_updated: string | null
+          synced_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          subproject_slug: string
+          title?: string | null
+          description?: string | null
+          gated?: boolean
+          update_count?: number
+          last_updated?: string | null
+          synced_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          subproject_slug?: string
+          title?: string | null
+          description?: string | null
+          gated?: boolean
+          update_count?: number
+          last_updated?: string | null
+          synced_at?: string
+          created_at?: string
+        }
+      }
+      // =========================================================================
+      // WORKSPACE & USER TABLES
+      // =========================================================================
+
       workspace_settings: {
         Row: {
           id: string
@@ -341,6 +462,8 @@ export interface Database {
           github_token_encrypted: string | null
           default_branch: string
           is_template_forked: boolean
+          webhook_id: string | null
+          webhook_secret: string | null
           created_at: string
           updated_at: string
         }
@@ -353,6 +476,8 @@ export interface Database {
           github_token_encrypted?: string | null
           default_branch?: string
           is_template_forked?: boolean
+          webhook_id?: string | null
+          webhook_secret?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -365,6 +490,8 @@ export interface Database {
           github_token_encrypted?: string | null
           default_branch?: string
           is_template_forked?: boolean
+          webhook_id?: string | null
+          webhook_secret?: string | null
           created_at?: string
           updated_at?: string
         }

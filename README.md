@@ -1,6 +1,16 @@
 # Workspace by Ali
 
-A collaborative workspace platform for managing projects, updates, and creative work. Built with Astro 5, Supabase, Keystatic CMS, and modern web technologies.
+> **⚠️ SELF-HOSTED ARCHITECTURE - ONE OWNER PER DEPLOYMENT**
+>
+> This workspace is designed to be **self-hosted** with **one owner per deployment**.
+> - The person who deploys this workspace is the **owner** (workspace admin)
+> - **Readers** (guests) can sign up to view gated content, but cannot manage workspace
+> - Each person who wants to **own** a workspace must deploy their own instance
+> - Content lives in **Git** (GitHub repos), NOT in a shared Supabase database
+>
+> This is NOT a multi-tenant SaaS platform. See [Architecture](#architecture) for details.
+
+A Git-first collaborative workspace platform for managing projects, updates, and creative work. Built with Astro 5, Supabase, Keystatic CMS, and modern web technologies.
 
 ## Features
 
@@ -100,6 +110,78 @@ Visit `http://localhost:4321` to see the app.
 ├── keystatic.config.ts # Keystatic CMS configuration
 └── astro.config.mjs    # Astro configuration
 ```
+
+## Architecture
+
+### Git-First Content Model
+
+This workspace uses a **Git-first** architecture, not a traditional database-centric model:
+
+**Source of Truth: GitHub**
+- All content (projects, sub-projects, updates, docs) lives as **Markdown files** in your GitHub repository
+- Content is managed via **Keystatic CMS** which commits directly to Git
+- Changes are tracked in Git history (full version control)
+
+**Performance Layer: Supabase Cache**
+- `project_cache` and `subproject_cache` tables provide fast dashboard queries
+- Cache is automatically updated via **GitHub webhooks** on every push
+- RLS policies control access (owner vs readers)
+
+**Why Git-First?**
+- ✅ Full version control and history
+- ✅ Content portability (works without database)
+- ✅ Easy backup and migration
+- ✅ Works offline (clone repo)
+- ✅ Collaboration via Git workflows (PRs, branches)
+
+### Owner vs Reader Model
+
+**Owner (1 per deployment):**
+- Person who deployed the workspace
+- Full control over workspace settings
+- Can create/edit content via Keystatic
+- Manages GitHub repo and webhooks
+
+**Readers (unlimited):**
+- Guests who sign up to view content
+- Can view public content immediately
+- Can view gated content after safety acknowledgment
+- Cannot edit content or access owner tools
+
+See [docs/architecture/01_CORE_CONCEPTS.md](docs/architecture/01_CORE_CONCEPTS.md) for detailed architecture documentation.
+
+## GitHub Webhook Setup
+
+**Why webhooks?**
+GitHub webhooks automatically sync your content cache whenever you push to your repository.
+
+**Setup Steps:**
+
+1. **Already done if you used the setup wizard!**
+   The `/setup` page automatically registers webhooks when you fork the template.
+
+2. **Manual setup (if needed):**
+   ```sh
+   # In your workspace repo on GitHub:
+   # Settings → Webhooks → Add webhook
+
+   Payload URL: https://your-workspace.vercel.app/api/webhooks/github
+   Content type: application/json
+   Secret: [your GITHUB_WEBHOOK_SECRET from .env]
+   Events: Just the push event
+   ```
+
+3. **Test the webhook:**
+   ```sh
+   # Make a change via Keystatic
+   # Check webhook deliveries in GitHub repo settings
+   # Verify cache updated: SELECT * FROM project_cache;
+   ```
+
+**Troubleshooting:**
+- Webhook not firing? Check repo Settings → Webhooks → Recent Deliveries
+- 401 errors? Verify `GITHUB_WEBHOOK_SECRET` matches in both .env and GitHub
+- Cache not updating? Check Vercel logs for webhook endpoint errors
 
 ## Roadmap
 

@@ -1,6 +1,26 @@
 /**
  * Projects API Route - List and Create
  *
+ * @deprecated This API route is DEPRECATED as of November 2025
+ *
+ * DEPRECATION NOTICE:
+ * This route uses the legacy Supabase-centric content model.
+ * The workspace has migrated to a Git-first architecture where:
+ * - Content lives in GitHub repositories (source of truth)
+ * - Metadata is cached in project_cache table for performance
+ * - Content is managed via Keystatic CMS (https://keystatic.com)
+ *
+ * Instead of using this API:
+ * - Use Keystatic to create/edit projects (navigate to /keystatic)
+ * - Content is stored as Markdown files in your GitHub repo
+ * - Changes are synced automatically via GitHub webhooks
+ *
+ * REMOVAL TIMELINE:
+ * - Phase 2 (Q1 2026): This route will be removed entirely
+ * - Please migrate to Keystatic before then
+ *
+ * For more information, see docs/architecture/01_CORE_CONCEPTS.md
+ *
  * GET - List user's projects
  * POST - Create new project
  */
@@ -68,7 +88,13 @@ export const GET: APIRoute = async ({ url, cookies }) => {
       }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Deprecation': 'true',
+          'Sunset': 'Sat, 31 Mar 2026 23:59:59 GMT',
+          'Link': '</keystatic>; rel="alternate"; title="Use Keystatic CMS instead"',
+          'Warning': '299 - "This API is deprecated. Use Keystatic CMS at /keystatic instead. This route will be removed in Phase 2 (Q1 2026)."',
+        },
       }
     );
   } catch (error) {
@@ -161,15 +187,24 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         }),
         {
           status: 201,
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Deprecation': 'true',
+            'Sunset': 'Sat, 31 Mar 2026 23:59:59 GMT',
+            'Link': '</keystatic>; rel="alternate"; title="Use Keystatic CMS instead"',
+            'Warning': '299 - "This API is deprecated. Use Keystatic CMS at /keystatic instead. This route will be removed in Phase 2 (Q1 2026)."',
+          },
         }
       );
     } else {
       // Form submission - redirect to projects page
+      // Note: This form-based creation is also deprecated - use Keystatic instead
       return new Response(null, {
         status: 303,
         headers: {
           Location: '/projects',
+          'Deprecation': 'true',
+          'Sunset': 'Sat, 31 Mar 2026 23:59:59 GMT',
         },
       });
     }

@@ -1,0 +1,164 @@
+---
+import WorkspaceLayout from '../components/layouts/WorkspaceLayout.astro';
+
+// TODO: Add step-by-step deployment guide
+// TODO: Add Vercel Deploy Button
+// TODO: Add prerequisites checklist
+// TODO: Add environment variables guide
+// TODO: Add troubleshooting section
+---
+
+<WorkspaceLayout title="Get Started - Deploy Your Own Workspace" description="Fork and deploy your own self-hosted research workspace">
+  <div class="start-page">
+    <div class="hero">
+      <h1>Deploy Your Own Workspace</h1>
+      <p class="subtitle">Self-hosted, Git-first research platform in minutes</p>
+    </div>
+
+    <div class="steps-placeholder">
+      <h2>🚀 TODO: Deployment Guide</h2>
+
+      <div class="step-list">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3>Fork the Repository</h3>
+            <p>One-click fork to your GitHub account</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3>Deploy to Vercel</h3>
+            <p>Add Vercel Deploy Button with pre-configured settings</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3>Configure Environment</h3>
+            <p>Set up Supabase, GitHub tokens, webhook secrets</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <h3>Complete Setup Wizard</h3>
+            <p>Connect GitHub, fork content template, start publishing</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="todo-section">
+        <h3>Missing Components:</h3>
+        <ul>
+          <li>Vercel Deploy Button with env vars pre-filled</li>
+          <li>Supabase setup guide (tables, RLS policies)</li>
+          <li>GitHub OAuth app creation steps</li>
+          <li>Webhook configuration instructions</li>
+          <li>Domain and DNS setup (optional)</li>
+          <li>Troubleshooting common issues</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .start-page {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+    }
+
+    .subtitle {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+    }
+
+    .steps-placeholder h2 {
+      text-align: center;
+      font-size: 1.75rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+    }
+
+    .step-list {
+      margin-bottom: 3rem;
+    }
+
+    .step {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+    }
+
+    .step-number {
+      flex-shrink: 0;
+      width: 3rem;
+      height: 3rem;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 800;
+    }
+
+    .step-content h3 {
+      font-size: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .step-content p {
+      color: var(--text-muted);
+    }
+
+    .todo-section {
+      background: var(--bg-secondary);
+      border: 2px dashed var(--border-color);
+      border-radius: 0.75rem;
+      padding: 2rem;
+    }
+
+    .todo-section h3 {
+      margin-bottom: 1rem;
+      color: var(--text-primary);
+    }
+
+    .todo-section ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .todo-section li {
+      padding: 0.5rem 0;
+      color: var(--text-secondary);
+    }
+
+    .todo-section li:before {
+      content: "□ ";
+      color: var(--primary);
+      font-weight: bold;
+      margin-right: 0.5rem;
+    }
+  </style>
+</WorkspaceLayout>

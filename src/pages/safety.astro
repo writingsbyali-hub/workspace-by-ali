@@ -1,0 +1,190 @@
+---
+import WorkspaceLayout from '../components/layouts/WorkspaceLayout.astro';
+import { createSupabaseServer } from '../lib/supabaseServer';
+
+// Get user info to show their acknowledgment history
+const supabase = createSupabaseServer(Astro.cookies);
+const { data: { user } } = await supabase.auth.getUser();
+
+// TODO: Fetch safety protocols from database or config
+// TODO: Fetch user's acknowledgment history if authenticated
+// TODO: Add re-acknowledgment functionality when protocols update
+// TODO: Add explanation of gating system
+---
+
+<WorkspaceLayout title="Safety Protocols - Workspace" description="Research safety protocols and acknowledgments">
+  <div class="safety-page">
+    <h1 class="page-title">Safety & Ethical Research</h1>
+
+    <section class="intro-section">
+      <p class="intro-text">
+        This workspace follows strict safety and ethical guidelines for research publication.
+        Some content may be gated and require acknowledgment before access.
+      </p>
+    </section>
+
+    <div class="content-placeholder">
+      <h2>📋 TODO: Safety Center Features</h2>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h3>Safety Protocols</h3>
+          <ul>
+            <li>List all active safety protocols</li>
+            <li>Show protocol versions and update dates</li>
+            <li>Link to full protocol documents</li>
+          </ul>
+        </div>
+
+        <div class="feature-card">
+          <h3>Gating System</h3>
+          <ul>
+            <li>Explain why content is gated</li>
+            <li>Show which projects require acknowledgment</li>
+            <li>Display acknowledgment process</li>
+          </ul>
+        </div>
+
+        <div class="feature-card">
+          <h3>Your Acknowledgments</h3>
+          {user ? (
+            <ul>
+              <li>Show user's acknowledgment history</li>
+              <li>Display acknowledged protocols</li>
+              <li>Alert if re-acknowledgment needed</li>
+            </ul>
+          ) : (
+            <p class="muted">Login to see your acknowledgment history</p>
+          )}
+        </div>
+
+        <div class="feature-card">
+          <h3>Responsible Science</h3>
+          <ul>
+            <li>Explain open science principles</li>
+            <li>Link to ethical guidelines</li>
+            <li>Show how to report concerns</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    {!user && (
+      <div class="cta-section">
+        <h3>Ready to Access Gated Content?</h3>
+        <p>Create an account to acknowledge safety protocols and view restricted research.</p>
+        <a href="/login" class="btn-primary">Login or Sign Up</a>
+      </div>
+    )}
+  </div>
+
+  <style>
+    .safety-page {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .page-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+    }
+
+    .intro-section {
+      margin-bottom: 3rem;
+    }
+
+    .intro-text {
+      font-size: 1.125rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .content-placeholder h2 {
+      text-align: center;
+      font-size: 1.75rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .feature-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+    }
+
+    .feature-card h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--primary);
+    }
+
+    .feature-card ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .feature-card li {
+      padding: 0.5rem 0;
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+    }
+
+    .feature-card li:before {
+      content: "• ";
+      color: var(--primary);
+      font-weight: bold;
+      margin-right: 0.5rem;
+    }
+
+    .muted {
+      color: var(--text-muted);
+      font-style: italic;
+      font-size: 0.9375rem;
+    }
+
+    .cta-section {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      border-radius: 1rem;
+      padding: 2rem;
+      text-align: center;
+      color: white;
+    }
+
+    .cta-section h3 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .cta-section p {
+      margin-bottom: 1.5rem;
+      opacity: 0.9;
+    }
+
+    .btn-primary {
+      display: inline-block;
+      padding: 0.75rem 2rem;
+      background: white;
+      color: var(--primary);
+      border-radius: 0.5rem;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+  </style>
+</WorkspaceLayout>
