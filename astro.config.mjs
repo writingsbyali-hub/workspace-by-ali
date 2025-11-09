@@ -32,6 +32,16 @@ export default defineConfig({
   site: 'https://workspace.xbyali.page',
   output: 'server',
   adapter: vercel(),
+  vite: {
+    // Prevent Yjs duplication that causes Keystatic errors
+    // This ensures Vite only bundles one copy of critical dependencies
+    optimizeDeps: {
+      include: ['yjs'],
+    },
+    ssr: {
+      noExternal: ['@keystatic/core', '@keystatic/astro'],
+    },
+  },
   integrations: [
     react(),
     tailwind({
