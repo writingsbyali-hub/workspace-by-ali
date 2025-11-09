@@ -1,5 +1,5 @@
 visibility: public
-gated: false
+safetyCode: ''
 category: other
 tags: []
 description: ' Testing Keystatic project creation'

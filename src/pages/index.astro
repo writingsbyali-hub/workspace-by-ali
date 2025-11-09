@@ -33,7 +33,6 @@ const projectsPromises = projectSlugs.map(async (slug) => {
     description: project.description,
     category: project.category || 'other',
     visibility: project.visibility,
-    gated: project.gated || false,
     status: project.status || 'draft',
     lastUpdated: project.lastUpdated,
     tags: project.tags || [],
@@ -123,7 +122,7 @@ const formatDate = (dateString?: string) => {
           <a href={`/projects/${project.slug}`} class="project-card">
             <div class="card-header">
               <h3 class="project-title">{project.title}</h3>
-              {project.gated && (
+              {project.visibility === 'gated' && (
                 <span class="gated-badge" title="Gated content - acknowledgment required">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
@@ -167,7 +166,7 @@ const formatDate = (dateString?: string) => {
               <div class="activity-title">{project.title}</div>
               <div class="activity-date">{formatDate(project.lastUpdated)}</div>
             </div>
-            {project.gated && (
+            {project.visibility === 'gated' && (
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-lock">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
               </svg>

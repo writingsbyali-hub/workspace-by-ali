@@ -1,4 +1,3 @@
-projectSlug: test-project-keystatic
-gated: false
+parentProject: test-project-keystatic
 description: Testing stream creation
 lastUpdated: 2025-11-06

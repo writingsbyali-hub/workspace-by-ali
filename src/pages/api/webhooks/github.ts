@@ -39,7 +39,6 @@ function parseProjectMetadata(content: string) {
     title: data.title || '',
     description: data.description || '',
     visibility: data.visibility || 'public',
-    gated: data.gated || false,
     safety_code: data.safetyCode || null,
     stream: data.category || null,
     tags: data.tags || [],
@@ -56,7 +55,6 @@ function parseSubprojectMetadata(content: string) {
   return {
     title: data.title || '',
     description: data.description || '',
-    gated: data.gated || false,
     project_slug: data.projectSlug || null,
     last_updated: data.lastUpdated || new Date().toISOString(),
   };

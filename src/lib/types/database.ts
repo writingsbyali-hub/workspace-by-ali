@@ -241,7 +241,6 @@ export interface Database {
           title: string | null
           description: string | null
           visibility: 'public' | 'gated' | 'private'
-          gated: boolean
           safety_code: string | null
           stream: string | null
           tags: string[] | null
@@ -295,7 +294,6 @@ export interface Database {
           subproject_slug: string
           title: string | null
           description: string | null
-          gated: boolean
           update_count: number
           last_updated: string | null
           synced_at: string

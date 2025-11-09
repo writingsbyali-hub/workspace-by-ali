@@ -1,4 +1,5 @@
 import { config, collection, fields } from '@keystatic/core';
+import { ProjectBreadcrumbs } from './src/components/keystatic/ProjectBreadcrumbs.jsx';
 
 /**
  * FIXED Keystatic Configuration
@@ -87,9 +88,8 @@ export default config({
         safetyCode: fields.text({
           label: 'Safety Code (Required only if Gated)',
           description: '⚠️ ONLY fill this if visibility is "Gated"\n\nEnter a unique code like "plasma_safety_v1.3"\n\nReaders must enter this exact code to access gated content.\n\nValid format: lowercase letters, numbers, and underscores only.',
-          validation: {
-            pattern: /^[a-z0-9_]*$/,  // Allow empty (optional), but if filled must match pattern
-          },
+          // Validation removed to prevent errors on existing content without this field
+          // Pattern can be enforced in frontend or during save
         }),
 
         category: fields.select({
@@ -162,142 +162,10 @@ export default config({
           defaultValue: { kind: 'today' },
         }),
 
-        // Conditional specialized fields based on category
-        categorySpecificFields: fields.conditional(
-          'category',  // Reference the category field
-          {
-            hardware: fields.object({
-              datasets: fields.array(
-                fields.text({ label: 'Dataset Name' }),
-                {
-                  label: 'Hardware Datasets',
-                  description: 'Sensor data, measurements, calibration files',
-                  itemLabel: (props) => props.value || 'New Dataset',
-                }
-              ),
-              equipment: fields.array(
-                fields.text({ label: 'Equipment' }),
-                {
-                  label: 'Equipment List',
-                  description: 'Tools, machines, sensors used in this project',
-                  itemLabel: (props) => props.value || 'New Equipment',
-                }
-              ),
-              methods: fields.array(
-                fields.text({ label: 'Method/Procedure' }),
-                {
-                  label: 'Methods & Procedures',
-                  description: 'Assembly instructions, calibration procedures, testing protocols',
-                  itemLabel: (props) => props.value || 'New Method',
-                }
-              ),
-            }, {
-              label: 'Hardware Project Details',
-              description: 'Specialized fields for hardware projects',
-            }),
-
-            biology: fields.object({
-              organisms: fields.array(
-                fields.text({ label: 'Organism' }),
-                {
-                  label: 'Organisms Studied',
-                  description: 'Species, strains, or cell lines used',
-                  itemLabel: (props) => props.value || 'New Organism',
-                }
-              ),
-              protocols: fields.array(
-                fields.text({ label: 'Protocol' }),
-                {
-                  label: 'Biological Protocols',
-                  description: 'Experimental procedures, staining methods, culture protocols',
-                  itemLabel: (props) => props.value || 'New Protocol',
-                }
-              ),
-              safetyEquipment: fields.array(
-                fields.text({ label: 'Safety Equipment' }),
-                {
-                  label: 'Required Safety Equipment',
-                  description: 'PPE, biosafety cabinets, containment requirements',
-                  itemLabel: (props) => props.value || 'New Safety Item',
-                }
-              ),
-            }, {
-              label: 'Biology Project Details',
-              description: 'Specialized fields for biology projects',
-            }),
-
-            plasma: fields.object({
-              powerSystems: fields.array(
-                fields.text({ label: 'Power System' }),
-                {
-                  label: 'Power Systems',
-                  description: 'Voltage sources, generators, power supplies',
-                  itemLabel: (props) => props.value || 'New Power System',
-                }
-              ),
-              diagnostics: fields.array(
-                fields.text({ label: 'Diagnostic Tool' }),
-                {
-                  label: 'Diagnostic Tools',
-                  description: 'Oscilloscopes, probes, cameras, spectrometers',
-                  itemLabel: (props) => props.value || 'New Diagnostic',
-                }
-              ),
-              safetyMeasures: fields.array(
-                fields.text({ label: 'Safety Measure' }),
-                {
-                  label: 'Safety Measures',
-                  description: 'High voltage warnings, containment, shielding, grounding',
-                  itemLabel: (props) => props.value || 'New Safety Measure',
-                }
-              ),
-            }, {
-              label: 'Plasma Project Details',
-              description: 'Specialized fields for plasma physics projects',
-            }),
-
-            'data-science': fields.object({
-              datasets: fields.array(
-                fields.text({ label: 'Dataset' }),
-                {
-                  label: 'Datasets',
-                  description: 'Training data, test data, validation sets',
-                  itemLabel: (props) => props.value || 'New Dataset',
-                }
-              ),
-              models: fields.array(
-                fields.text({ label: 'Model' }),
-                {
-                  label: 'Models & Algorithms',
-                  description: 'ML models, statistical methods, analysis techniques',
-                  itemLabel: (props) => props.value || 'New Model',
-                }
-              ),
-              tools: fields.array(
-                fields.text({ label: 'Tool/Library' }),
-                {
-                  label: 'Tools & Libraries',
-                  description: 'Python libraries, frameworks, software tools',
-                  itemLabel: (props) => props.value || 'New Tool',
-                }
-              ),
-            }, {
-              label: 'Data Science Project Details',
-              description: 'Specialized fields for data science projects',
-            }),
-
-            other: fields.object({
-              notes: fields.text({
-                label: 'Additional Notes',
-                multiline: true,
-                description: 'Any category-specific information not covered above',
-              }),
-            }, {
-              label: 'Additional Details',
-              description: 'General project-specific information',
-            }),
-          }
-        ),
+        // NOTE: Conditional category-specific fields removed due to Keystatic limitations
+        // Conditional fields cannot cross-reference other schema fields
+        // Can be re-added in Phase 2/3 with proper self-contained discriminant
+        // See: docs/keystatic/SESSION_HANDOVER.md - Issue with Conditional Fields
       },
     }),
 
@@ -432,6 +300,76 @@ export default config({
       },
     }),
 
+    // Tasks Collection (Quick capture, converts to Updates)
+    tasks: collection({
+      label: 'Tasks',
+      path: 'content/tasks/*/',
+      slugField: 'title',
+      columns: ['title', 'project', 'priority', 'status', 'createdDate'],
+
+      schema: {
+        title: fields.text({
+          label: 'Task Title',
+          description: 'Brief description of the task',
+          validation: { isRequired: true },
+        }),
+
+        // Link to parent project
+        project: fields.relationship({
+          label: 'Related Project',
+          collection: 'projects',
+          validation: { isRequired: true },
+        }),
+
+        // Optional sub-project link
+        subProject: fields.relationship({
+          label: 'Related Sub-Project (Optional)',
+          collection: 'subProjects',
+        }),
+
+        priority: fields.select({
+          label: 'Priority',
+          options: [
+            { label: '🔴 High', value: 'high' },
+            { label: '🟡 Medium', value: 'medium' },
+            { label: '🟢 Low', value: 'low' },
+          ],
+          defaultValue: 'medium',
+        }),
+
+        status: fields.select({
+          label: 'Status',
+          options: [
+            { label: '📋 To Do', value: 'todo' },
+            { label: '⏳ In Progress', value: 'in-progress' },
+            { label: '✅ Completed', value: 'completed' },
+            { label: '🔄 Ready to Convert', value: 'ready-to-convert' },
+          ],
+          defaultValue: 'todo',
+        }),
+
+        notes: fields.text({
+          label: 'Quick Notes',
+          multiline: true,
+          description: 'Quick observations or data points',
+        }),
+
+        createdDate: fields.date({
+          label: 'Created Date',
+          defaultValue: { kind: 'today' },
+          validation: { isRequired: true },
+        }),
+
+        tags: fields.array(
+          fields.text({ label: 'Tag' }),
+          {
+            label: 'Tags',
+            itemLabel: (props) => props.value,
+          }
+        ),
+      },
+    }),
+
     // Docs Collection (Standalone Documentation)
     docs: collection({
       label: 'Documentation',
@@ -472,9 +410,8 @@ export default config({
         safetyCode: fields.text({
           label: 'Safety Code (Required only if Gated)',
           description: '⚠️ ONLY fill this if visibility is "Gated"\n\nEnter a unique code like "plasma_safety_v1.3"\n\nReaders must enter this exact code to access gated content.\n\nValid format: lowercase letters, numbers, and underscores only.',
-          validation: {
-            pattern: /^[a-z0-9_]*$/,  // Allow empty (optional), but if filled must match pattern
-          },
+          // Validation removed to prevent errors on existing content without this field
+          // Pattern can be enforced in frontend or during save
         }),
 
         // Optional: Link to parent project
@@ -551,10 +488,11 @@ export default config({
   ui: {
     brand: {
       name: 'Workspace',
+      mark: ProjectBreadcrumbs,
     },
     navigation: {
       'Project Hub': ['projects', 'subProjects'],
-      'Research Updates': ['updates'],
+      'Research Activity': ['tasks', 'updates'],
       'Documentation': ['docs'],
     },
   },

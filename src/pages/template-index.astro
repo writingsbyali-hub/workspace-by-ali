@@ -24,7 +24,6 @@ const projectsPromises = projectSlugs.map(async (slug) => {
     description: project.description,
     category: project.category || 'other',
     visibility: project.visibility,
-    gated: project.gated || false,
     status: project.status || 'draft',
     lastUpdated: project.lastUpdated,
     tags: project.tags || [],

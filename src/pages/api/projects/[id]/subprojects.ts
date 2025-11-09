@@ -40,7 +40,6 @@ export const GET: APIRoute = async ({ params }) => {
         slug,
         title: subProject.title,
         description: subProject.description,
-        gated: subProject.gated || false,
         status: subProject.status || 'active',
         updateCount,
       };

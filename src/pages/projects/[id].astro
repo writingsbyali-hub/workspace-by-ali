@@ -53,7 +53,7 @@ workspaceOwnerId = workspaceSettings?.owner_id || null;
 
 // Check if user has acknowledged gated content
 let hasAcknowledged = false;
-if (project.gated && user && workspaceOwnerId) {
+if (project.visibility === 'gated' && user && workspaceOwnerId) {
   // Get all acknowledgment requirement keys for this content
   const requirements = getRequirementsForContent('project', projectSlug);
   const requiredKeys = requirements.map(r => r.key);
@@ -73,7 +73,7 @@ if (project.gated && user && workspaceOwnerId) {
 }
 
 // For gated content, show modal if not acknowledged (and user is not owner)
-const needsAcknowledgment = project.gated && !hasAcknowledged && !isOwner;
+const needsAcknowledgment = project.visibility === 'gated' && !hasAcknowledged && !isOwner;
 
 // Get requirements for the modal
 const gatingRequirements = getRequirementsForContent('project', projectSlug);
@@ -132,7 +132,7 @@ const lastUpdatedAgo = formatDistanceToNow(lastUpdatedDate, { addSuffix: true })
             </span>
           )}
 
-          {project.gated && (
+          {project.visibility === 'gated' && (
             <span class="badge badge-gated">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
@@ -288,7 +288,7 @@ const lastUpdatedAgo = formatDistanceToNow(lastUpdatedDate, { addSuffix: true })
               )}
               <div class="subproject-meta">
                 Status: {subProject.status || 'active'}
-                {subProject.gated && (
+                {false && (
                   <span class="gated-indicator">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
@@ -332,11 +332,7 @@ const lastUpdatedAgo = formatDistanceToNow(lastUpdatedDate, { addSuffix: true })
                   <div class="update-date">{formatDistanceToNow(new Date(update.date), { addSuffix: true })}</div>
                 )}
               </div>
-              {update.gated && (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-lock">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                </svg>
-              )}
+              {/* Updates inherit gating from parent project */}
             </a>
           ))}
         </div>

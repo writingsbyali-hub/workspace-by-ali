@@ -1,5 +1,6 @@
 visibility: public
-gated: false
+safetyCode: ''
+category: other
 tags:
   - testing
   - example

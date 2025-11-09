@@ -23,7 +23,6 @@ export interface ProjectContent {
   slug: string;
   title: string;
   visibility: 'public' | 'gated' | 'private';
-  gated: boolean;
   safetyCode?: string;
   category: string;
   tags: string[];
@@ -38,7 +37,6 @@ export interface SubProjectContent {
   slug: string;
   title: string;
   projectSlug: string;
-  gated: boolean;
   description: string;
   body: string;
   startDate?: string;
@@ -61,7 +59,6 @@ export interface DocContent {
   title: string;
   category: 'protocol' | 'methods' | 'literature' | 'guide' | 'reference' | 'other';
   visibility: 'public' | 'gated' | 'private';
-  gated: boolean;
   safetyCode?: string;
   projectSlug?: string;
   description: string;
@@ -135,7 +132,6 @@ export async function fetchProjectFromGit(
     slug,
     title: data.title || slug,
     visibility: data.visibility || 'public',
-    gated: data.gated || false,
     safetyCode: data.safetyCode,
     category: data.category || 'other',
     tags: data.tags || [],
@@ -169,7 +165,6 @@ export async function fetchSubProjectFromGit(
     slug,
     title: data.title || slug,
     projectSlug: data.projectSlug || '',
-    gated: data.gated || false,
     description: data.description || '',
     body,
     startDate: data.startDate,
@@ -230,7 +225,6 @@ export async function fetchDocFromGit(
     title: data.title || slug,
     category: data.category || 'other',
     visibility: data.visibility || 'public',
-    gated: data.gated || false,
     safetyCode: data.safetyCode,
     projectSlug: data.projectSlug,
     description: data.description || '',

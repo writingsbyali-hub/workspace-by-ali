@@ -1,6 +1,6 @@
 title: First Test Update
-projectSlug: test-project-keystatic
-subProjectSlug: test-sub-project
+project: test-project-keystatic
+subProject: test-sub-project
 date: 2025-11-06
 type: note
 tags:
