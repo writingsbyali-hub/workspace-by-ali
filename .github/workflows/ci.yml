@@ -67,7 +67,7 @@ jobs:
       # Setup
       # ----------------------------------------------------------------------
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -142,7 +142,7 @@ jobs:
   #   timeout-minutes: 5
   #
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v5
   #     - uses: actions/setup-node@v4
   #       with:
   #         node-version: '20'
@@ -159,7 +159,7 @@ jobs:
   #   timeout-minutes: 10
   #
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v5
   #     - uses: actions/setup-node@v4
   #       with:
   #         node-version: '20'
@@ -179,7 +179,7 @@ jobs:
   #   timeout-minutes: 15
   #
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v5
   #     - uses: actions/setup-node@v4
   #       with:
   #         node-version: '20'
