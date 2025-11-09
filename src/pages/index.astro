@@ -1,6 +1,5 @@
 ---
 import WorkspaceLayout from '../components/layouts/WorkspaceLayout.astro';
-import ProjectTree from '../components/workspace/ProjectTree.astro';
 import { createReader } from '@keystatic/core/reader';
 import keystaticConfig from '../../keystatic.config';
 import { createSupabaseServer } from '../lib/supabaseServer';
@@ -41,59 +40,6 @@ const projectsPromises = projectSlugs.map(async (slug) => {
 });
 
 const allProjects = (await Promise.all(projectsPromises)).filter(p => p !== null);
-
-// Fetch all sub-projects for tree view
-const subProjectSlugs = await reader.collections.subProjects.list();
-const subProjectsPromises = subProjectSlugs.map(async (slug) => {
-  const subProject = await reader.collections.subProjects.read(slug);
-  if (!subProject) return null;
-
-  // Only show public/gated sub-projects (not private)
-  if (subProject.visibility === 'private') return null;
-
-  return {
-    slug,
-    entry: {
-      title: subProject.title,
-      parentProject: subProject.parentProject,
-      visibility: subProject.visibility || 'inherit',
-    },
-  };
-});
-
-const allSubProjects = (await Promise.all(subProjectsPromises)).filter(sp => sp !== null);
-
-// Fetch all updates for tree view
-const updateSlugs = await reader.collections.updates.list();
-const updatesPromises = updateSlugs.map(async (slug) => {
-  const update = await reader.collections.updates.read(slug);
-  if (!update) return null;
-
-  // Only show public/gated updates (not private)
-  if (update.visibility === 'private') return null;
-
-  return {
-    slug,
-    entry: {
-      title: update.title,
-      project: update.project,
-      subProject: update.subProject,
-      visibility: update.visibility || 'inherit',
-    },
-  };
-});
-
-const allUpdates = (await Promise.all(updatesPromises)).filter(u => u !== null);
-
-// Prepare data for tree view
-const treeProjects = allProjects.map(p => ({
-  slug: p.slug,
-  entry: {
-    title: p.title,
-    visibility: p.visibility,
-    status: p.status,
-  },
-}));
 
 // Featured projects (using 'featured' tag)
 const featuredProjects = allProjects
@@ -228,23 +174,6 @@ const formatDate = (dateString?: string) => {
           </a>
         ))}
       </div>
-    </section>
-  )}
-
-  <!-- Project Directory Tree -->
-  {treeProjects.length > 0 && (
-    <section class="tree-section">
-      <h2 class="section-title">Project Directory</h2>
-      <p class="tree-description">
-        Explore the complete hierarchical structure of all projects, sub-projects, and updates.
-        Icons indicate visibility: 🌐 Public, 🔒 Gated (requires safety acknowledgment), 🚫 Private, ⬆️ Inherits from parent.
-      </p>
-      <ProjectTree
-        projects={treeProjects}
-        subProjects={allSubProjects}
-        updates={allUpdates}
-        showUpdates={true}
-      />
     </section>
   )}
 
@@ -585,19 +514,6 @@ const formatDate = (dateString?: string) => {
   .btn-secondary:hover {
     border-color: var(--primary);
     background: var(--bg-hover);
-  }
-
-  /* Project Tree Section */
-  .tree-section {
-    margin-bottom: 3rem;
-  }
-
-  .tree-description {
-    font-size: 0.95rem;
-    color: var(--text-muted);
-    margin-bottom: 1.5rem;
-    line-height: 1.6;
-    max-width: 800px;
   }
 
   /* Mobile Responsive */
