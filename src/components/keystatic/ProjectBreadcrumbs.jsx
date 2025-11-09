@@ -136,6 +136,7 @@ export function ProjectBreadcrumbs() {
         }}>
           {currentCollection === 'projects' && '🔧 Hardware, 🧬 Biology, ⚡ Plasma'}
           {currentCollection === 'subProjects' && '📂 Nested Projects'}
+          {currentCollection === 'tasks' && '✅ Quick Capture → 🔄 Convert to Updates'}
           {currentCollection === 'updates' && '🔬 Research Updates'}
           {currentCollection === 'docs' && '📚 Protocols & Methods'}
         </div>

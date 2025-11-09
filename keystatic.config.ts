@@ -78,16 +78,16 @@ export default config({
         visibility: fields.select({
           label: 'Who can access this project?',
           options: [
-            { label: '🌐 Public - Anyone can view', value: 'public' },
-            { label: '🔒 Gated - Requires safety acknowledgment', value: 'gated' },
-            { label: '🚫 Private - Only you can view', value: 'private' },
+            { label: 'Public - Anyone can view', value: 'public' },
+            { label: 'Gated - Requires safety acknowledgment', value: 'gated' },
+            { label: 'Private - Only you can view', value: 'private' },
           ],
           defaultValue: 'public',
         }),
 
         safetyCode: fields.text({
           label: 'Safety Code (Required only if Gated)',
-          description: '⚠️ ONLY fill this if visibility is "Gated"\n\nEnter a unique code like "plasma_safety_v1.3"\n\nReaders must enter this exact code to access gated content.\n\nValid format: lowercase letters, numbers, and underscores only.',
+          description: 'ONLY fill this if visibility is "Gated"\n\nEnter a unique code like "plasma_safety_v1.3"\n\nReaders must enter this exact code to access gated content.\n\nValid format: lowercase letters, numbers, and underscores only.',
           // Validation removed to prevent errors on existing content without this field
           // Pattern can be enforced in frontend or during save
         }),
@@ -95,11 +95,11 @@ export default config({
         category: fields.select({
           label: 'Category',
           options: [
-            { label: '🔧 Hardware', value: 'hardware' },
-            { label: '🧬 Biology', value: 'biology' },
-            { label: '⚡ Plasma', value: 'plasma' },
-            { label: '📊 Data Science', value: 'data-science' },
-            { label: '📋 Other', value: 'other' },
+            { label: 'Hardware', value: 'hardware' },
+            { label: 'Biology', value: 'biology' },
+            { label: 'Plasma', value: 'plasma' },
+            { label: 'Data Science', value: 'data-science' },
+            { label: 'Other', value: 'other' },
           ],
           defaultValue: 'other',
         }),
@@ -409,7 +409,7 @@ export default config({
 
         safetyCode: fields.text({
           label: 'Safety Code (Required only if Gated)',
-          description: '⚠️ ONLY fill this if visibility is "Gated"\n\nEnter a unique code like "plasma_safety_v1.3"\n\nReaders must enter this exact code to access gated content.\n\nValid format: lowercase letters, numbers, and underscores only.',
+          description: 'ONLY fill this if visibility is "Gated"\n\nEnter a unique code like "plasma_safety_v1.3"\n\nReaders must enter this exact code to access gated content.\n\nValid format: lowercase letters, numbers, and underscores only.',
           // Validation removed to prevent errors on existing content without this field
           // Pattern can be enforced in frontend or during save
         }),

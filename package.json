@@ -10,6 +10,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "new:update": "node scripts/new-update.mjs",
+    "convert:tasks": "node scripts/convert-tasks-to-updates.mjs",
     "format": "prettier --write \"src/**/*.{astro,ts,tsx,js,css,md}\"",
     "session": "tsx scripts/session-updater.ts"
   },
