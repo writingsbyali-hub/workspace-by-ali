@@ -1,5 +1,4 @@
-parentProject: test-project-keystatic
+parentProject: Test Project via Keystatic
 visibility: inherit
-safetyCode: ''
 description: Testing stream creation
 lastUpdated: 2025-11-06
