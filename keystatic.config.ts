@@ -1,4 +1,4 @@
-import { config, collection, fields } from '@keystatic/core';
+import { config, collection, fields, singleton } from '@keystatic/core';
 import { ProjectBreadcrumbs } from './src/components/keystatic/ProjectBreadcrumbs.jsx';
 
 /**
@@ -60,6 +60,155 @@ export default config({
     },
   },
 
+  /**
+   * Global Settings - Managed through Keystatic CMS
+   *
+   * Priority 2: Global Settings (Nov 9, 2025)
+   *
+   * Singletons allow non-developers to manage:
+   * - Site configuration (workspace name, researcher info)
+   * - Master tag list (reference for adding tags to content)
+   * - Master category list (reference for organizing projects)
+   *
+   * Note: Keystatic field options cannot be dynamically loaded from singletons
+   * at config time. These serve as:
+   * 1. Master reference lists - source of truth
+   * 2. Documentation - non-devs can see all available options
+   * 3. Future-ready - can be used by frontend components
+   */
+  singletons: {
+    // Global Site Settings
+    siteSettings: singleton({
+      label: 'Site Settings',
+      path: 'content/settings/site',
+      schema: {
+        workspaceName: fields.text({
+          label: 'Workspace Name',
+          description: 'The name of your research workspace (appears in navigation and page titles)',
+          validation: { isRequired: true },
+        }),
+
+        workspaceDescription: fields.text({
+          label: 'Workspace Description',
+          description: 'Brief description of your research workspace',
+          multiline: true,
+        }),
+
+        researcherName: fields.text({
+          label: 'Researcher Name',
+          description: 'Your full name',
+          validation: { isRequired: true },
+        }),
+
+        researcherBio: fields.text({
+          label: 'Researcher Bio',
+          description: 'Brief bio or research interests',
+          multiline: true,
+        }),
+
+        contactEmail: fields.text({
+          label: 'Contact Email',
+          description: 'Email for inquiries (optional)',
+        }),
+
+        githubUrl: fields.text({
+          label: 'GitHub URL',
+          description: 'Your GitHub profile URL',
+        }),
+
+        twitterUrl: fields.text({
+          label: 'Twitter/X URL',
+          description: 'Your Twitter/X profile URL',
+        }),
+
+        linkedinUrl: fields.text({
+          label: 'LinkedIn URL',
+          description: 'Your LinkedIn profile URL',
+        }),
+      },
+    }),
+
+    // Global Tags - Master Reference List
+    globalTags: singleton({
+      label: 'Manage Tags',
+      path: 'content/settings/tags',
+      schema: {
+        tags: fields.array(
+          fields.object({
+            value: fields.text({
+              label: 'Tag Value',
+              description: 'Lowercase, use hyphens for spaces (e.g., "plasma-physics")',
+              validation: {
+                isRequired: true,
+              },
+            }),
+            label: fields.text({
+              label: 'Display Label',
+              description: 'Human-readable label (e.g., "Plasma Physics")',
+              validation: { isRequired: true },
+            }),
+            description: fields.text({
+              label: 'Description',
+              description: 'What does this tag represent?',
+              multiline: true,
+            }),
+            color: fields.text({
+              label: 'Badge Color',
+              description: 'Hex color for tag badge (e.g., "#3B82F6")',
+            }),
+          }),
+          {
+            label: 'Available Tags',
+            description: 'Master list of tags that can be applied to projects, sub-projects, and updates. Reference this list when adding tags to content.',
+            itemLabel: (props) => props.fields.label.value || props.fields.value.value || 'New Tag',
+          }
+        ),
+      },
+    }),
+
+    // Global Categories - Master Reference List
+    globalCategories: singleton({
+      label: 'Manage Categories',
+      path: 'content/settings/categories',
+      schema: {
+        categories: fields.array(
+          fields.object({
+            value: fields.text({
+              label: 'Category Value',
+              description: 'Lowercase, use hyphens for spaces (e.g., "data-science")',
+              validation: {
+                isRequired: true,
+              },
+            }),
+            label: fields.text({
+              label: 'Display Label',
+              description: 'Human-readable label (e.g., "Data Science")',
+              validation: { isRequired: true },
+            }),
+            description: fields.text({
+              label: 'Description',
+              description: 'What types of projects fit this category?',
+              multiline: true,
+            }),
+            color: fields.text({
+              label: 'Badge Color',
+              description: 'Hex color for category badge (e.g., "#10B981")',
+            }),
+            emoji: fields.text({
+              label: 'Emoji Icon',
+              description: 'Single emoji to represent this category (e.g., "🔬")',
+            }),
+          }),
+          {
+            label: 'Available Categories',
+            description: 'Master list of categories for organizing projects. Reference this list when categorizing projects.',
+            itemLabel: (props) => props.fields.label.value || props.fields.value.value || 'New Category',
+          }
+        ),
+      },
+    }),
+  },
+
   collections: {
     // Projects Collection (Top Level)
     projects: collection({
@@ -94,6 +243,7 @@ export default config({
 
         category: fields.select({
           label: 'Category',
+          description: 'Choose a category for this project. To add or edit categories, go to Settings → Manage Categories.',
           options: [
             { label: 'Hardware', value: 'hardware' },
             { label: 'Biology', value: 'biology' },
@@ -108,6 +258,7 @@ export default config({
           fields.text({ label: 'Tag' }),
           {
             label: 'Tags',
+            description: 'Add tags to categorize and filter content. See Settings → Manage Tags for available tags and their descriptions.',
             itemLabel: (props) => props.value,
           }
         ),
@@ -396,6 +547,7 @@ export default config({
           fields.text({ label: 'Tag' }),
           {
             label: 'Tags',
+            description: 'Add tags to categorize and filter content. See Settings → Manage Tags for available tags and their descriptions.',
             itemLabel: (props) => props.value,
           }
         ),
@@ -418,6 +570,7 @@ export default config({
 
         category: fields.select({
           label: 'Category',
+          description: 'Choose a category for this document.',
           options: [
             { label: '📋 Protocol', value: 'protocol' },
             { label: '🔬 Methods', value: 'methods' },
@@ -495,6 +648,7 @@ export default config({
           fields.text({ label: 'Tag' }),
           {
             label: 'Tags',
+            description: 'Add tags to categorize and filter content. See Settings → Manage Tags for available tags and their descriptions.',
             itemLabel: (props) => props.value,
           }
         ),
@@ -523,6 +677,7 @@ export default config({
       mark: ProjectBreadcrumbs,
     },
     navigation: {
+      'Settings': ['siteSettings', 'globalTags', 'globalCategories'],
       'Project Hub': ['projects', 'subProjects'],
       'Research Activity': ['tasks', 'updates'],
       'Documentation': ['docs'],

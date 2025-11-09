@@ -1,0 +1,26 @@
+categories:
+  - value: hardware
+    label: Hardware
+    description: Physical devices, electronic circuits, sensors, and mechanical systems. Projects involving tangible equipment and instrumentation.
+    color: '#F59E0B'
+    emoji: '⚙️'
+  - value: biology
+    label: Biology
+    description: Biological research, organisms, cellular studies, and life sciences. Projects exploring living systems and their mechanisms.
+    color: '#10B981'
+    emoji: '🧬'
+  - value: plasma
+    label: Plasma
+    description: Plasma physics experiments, ionized gases, and high-energy phenomena. Projects working with the fourth state of matter.
+    color: '#8B5CF6'
+    emoji: '⚡'
+  - value: data-science
+    label: Data Science
+    description: Data analysis, machine learning, computational modeling, and statistical research. Projects focused on extracting insights from data.
+    color: '#3B82F6'
+    emoji: '📊'
+  - value: other
+    label: Other
+    description: Miscellaneous projects that don't fit into the main categories. Interdisciplinary or exploratory work.
+    color: '#6B7280'
+    emoji: '📦'

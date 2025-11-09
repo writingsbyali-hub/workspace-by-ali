@@ -1,0 +1,49 @@
+tags:
+  - value: plasma-physics
+    label: Plasma Physics
+    description: Research and experiments related to plasma physics and ionized gases
+    color: '#8B5CF6'
+  - value: hardware
+    label: Hardware
+    description: Physical devices, circuits, electronics, and mechanical systems
+    color: '#F59E0B'
+  - value: biology
+    label: Biology
+    description: Biological research, organisms, and life sciences
+    color: '#10B981'
+  - value: data-science
+    label: Data Science
+    description: Data analysis, machine learning, statistics, and computational methods
+    color: '#3B82F6'
+  - value: experiment
+    label: Experiment
+    description: Experimental work with data collection and observations
+    color: '#EF4444'
+  - value: analysis
+    label: Analysis
+    description: Data analysis, interpretation, and insights
+    color: '#06B6D4'
+  - value: prototype
+    label: Prototype
+    description: Early-stage prototype development and testing
+    color: '#EC4899'
+  - value: documentation
+    label: Documentation
+    description: Technical documentation and guides
+    color: '#6366F1'
+  - value: research
+    label: Research
+    description: Research activities, literature review, and investigation
+    color: '#8B5CF6'
+  - value: safety
+    label: Safety
+    description: Safety protocols, risk assessment, and protective measures
+    color: '#DC2626'
+  - value: in-progress
+    label: In Progress
+    description: Currently active work
+    color: '#F59E0B'
+  - value: completed
+    label: Completed
+    description: Finished work and results
+    color: '#10B981'
