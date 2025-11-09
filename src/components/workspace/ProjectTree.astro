@@ -1,0 +1,477 @@
+---
+/**
+ * Project Tree Component
+ *
+ * Priority 3: Directory Views
+ * Displays hierarchical project structure with visual indicators
+ *
+ * Features:
+ * - Tree view of Projects → Sub-Projects → Updates
+ * - Visual gating indicators (public/gated/private)
+ * - Expand/collapse functionality
+ * - Consistent with workspace design system
+ */
+
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  projects: Array<{
+    slug: string;
+    entry: {
+      title: string;
+      visibility: 'public' | 'gated' | 'private';
+      status?: string;
+    };
+  }>;
+  subProjects: Array<{
+    slug: string;
+    entry: {
+      title: string;
+      parentProject: string;
+      visibility: 'public' | 'gated' | 'private' | 'inherit';
+    };
+  }>;
+  updates?: Array<{
+    slug: string;
+    entry: {
+      title: string;
+      project?: string;
+      subProject?: string;
+      visibility: 'public' | 'gated' | 'private' | 'inherit';
+    };
+  }>;
+  showUpdates?: boolean;
+  compact?: boolean;
+}
+
+const { projects, subProjects, updates = [], showUpdates = true, compact = false } = Astro.props;
+
+// Build hierarchical tree structure
+const tree = projects.map(project => {
+  const projectSubProjects = subProjects.filter(sp =>
+    sp.entry.parentProject === project.slug
+  );
+
+  return {
+    ...project,
+    subProjects: projectSubProjects.map(sp => ({
+      ...sp,
+      updates: showUpdates ? updates.filter(u =>
+        u.entry.subProject === sp.slug
+      ) : [],
+    })),
+    directUpdates: showUpdates ? updates.filter(u =>
+      u.entry.project === project.slug && !u.entry.subProject
+    ) : [],
+  };
+});
+
+// Get visibility icon and label
+const getVisibilityIndicator = (visibility: string) => {
+  switch (visibility) {
+    case 'public':
+      return { icon: '🌐', label: 'Public', class: 'visibility-public' };
+    case 'gated':
+      return { icon: '🔒', label: 'Gated', class: 'visibility-gated' };
+    case 'private':
+      return { icon: '🚫', label: 'Private', class: 'visibility-private' };
+    case 'inherit':
+      return { icon: '⬆️', label: 'Inherit', class: 'visibility-inherit' };
+    default:
+      return { icon: '🌐', label: 'Public', class: 'visibility-public' };
+  }
+};
+
+// Get status badge
+const getStatusBadge = (status?: string) => {
+  switch (status) {
+    case 'active':
+      return { icon: '🟢', label: 'Active', class: 'status-active' };
+    case 'archived':
+      return { icon: '📦', label: 'Archived', class: 'status-archived' };
+    case 'draft':
+      return { icon: '📝', label: 'Draft', class: 'status-draft' };
+    default:
+      return null;
+  }
+};
+---
+
+<div class={`project-tree ${compact ? 'compact' : ''}`}>
+  {tree.length === 0 ? (
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="empty-icon">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+      </svg>
+      <p class="empty-text">No projects yet</p>
+      <p class="empty-subtext">Create your first project to get started</p>
+    </div>
+  ) : (
+    tree.map(project => {
+      const visibility = getVisibilityIndicator(project.entry.visibility);
+      const status = getStatusBadge(project.entry.status);
+      const hasChildren = project.subProjects.length > 0 || project.directUpdates.length > 0;
+
+      return (
+        <div class="project-node" data-project-slug={project.slug}>
+          <div class="tree-item project-header">
+            {hasChildren && (
+              <button class="expand-toggle" aria-label="Toggle project">
+                <svg class="expand-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </button>
+            )}
+            <span class="tree-icon project-icon">📁</span>
+            <a href={`/projects/${project.slug}`} class="tree-link">
+              {project.entry.title}
+            </a>
+            <div class="tree-badges">
+              <span class={`visibility-badge ${visibility.class}`} title={visibility.label}>
+                {visibility.icon}
+              </span>
+              {status && (
+                <span class={`status-badge ${status.class}`} title={status.label}>
+                  {status.icon}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {hasChildren && (
+            <div class="tree-children">
+              {/* Sub-Projects */}
+              {project.subProjects.map(sp => {
+                const spVisibility = getVisibilityIndicator(sp.entry.visibility);
+                const hasUpdates = sp.updates.length > 0;
+
+                return (
+                  <div class="subproject-node">
+                    <div class="tree-item subproject-header">
+                      {hasUpdates && (
+                        <button class="expand-toggle" aria-label="Toggle sub-project">
+                          <svg class="expand-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                          </svg>
+                        </button>
+                      )}
+                      <span class="tree-icon subproject-icon">📂</span>
+                      <a href={`/projects/${project.slug}/subprojects/${sp.slug}`} class="tree-link">
+                        {sp.entry.title}
+                      </a>
+                      <span class={`visibility-badge ${spVisibility.class}`} title={spVisibility.label}>
+                        {spVisibility.icon}
+                      </span>
+                    </div>
+
+                    {/* Updates under Sub-Project */}
+                    {hasUpdates && (
+                      <div class="tree-children">
+                        {sp.updates.map(update => {
+                          const updateVisibility = getVisibilityIndicator(update.entry.visibility);
+                          return (
+                            <div class="tree-item update-item">
+                              <span class="tree-icon update-icon">📄</span>
+                              <a href={`/updates/${update.slug}`} class="tree-link">
+                                {update.entry.title}
+                              </a>
+                              <span class={`visibility-badge ${updateVisibility.class}`} title={updateVisibility.label}>
+                                {updateVisibility.icon}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Direct Updates (under Project, not Sub-Project) */}
+              {project.directUpdates.map(update => {
+                const updateVisibility = getVisibilityIndicator(update.entry.visibility);
+                return (
+                  <div class="tree-item update-item">
+                    <span class="tree-icon update-icon">📄</span>
+                    <a href={`/updates/${update.slug}`} class="tree-link">
+                      {update.entry.title}
+                    </a>
+                    <span class={`visibility-badge ${updateVisibility.class}`} title={updateVisibility.label}>
+                      {updateVisibility.icon}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    })
+  )}
+</div>
+
+<style>
+  .project-tree {
+    font-family: var(--font-sans);
+    background: var(--bg-elevated);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    transition: all 0.2s ease;
+  }
+
+  .project-tree.compact {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--gray-500);
+  }
+
+  .empty-icon {
+    width: 4rem;
+    height: 4rem;
+    margin: 0 auto 1rem;
+    color: var(--gray-300);
+  }
+
+  .empty-text {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-subtext {
+    font-size: 0.875rem;
+    color: var(--gray-500);
+  }
+
+  /* Tree Structure */
+  .project-node {
+    margin-bottom: 0.5rem;
+  }
+
+  .project-node:last-child {
+    margin-bottom: 0;
+  }
+
+  .tree-children {
+    margin-left: 1.5rem;
+    border-left: 2px solid var(--gray-200);
+    padding-left: 1rem;
+    margin-top: 0.5rem;
+    transition: all 0.3s ease;
+  }
+
+  .project-node[data-collapsed="true"] > .tree-children {
+    display: none;
+  }
+
+  .subproject-node {
+    margin-bottom: 0.5rem;
+  }
+
+  /* Tree Items */
+  .tree-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    transition: background-color 0.2s ease;
+    position: relative;
+  }
+
+  .tree-item:hover {
+    background: var(--bg-hover);
+  }
+
+  /* Expand/Collapse Toggle */
+  .expand-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+    color: var(--gray-500);
+  }
+
+  .expand-toggle:hover {
+    background: var(--gray-200);
+    color: var(--gray-700);
+  }
+
+  .expand-icon {
+    width: 1rem;
+    height: 1rem;
+    transition: transform 0.2s ease;
+  }
+
+  [data-collapsed="false"] > .tree-item > .expand-toggle > .expand-icon {
+    transform: rotate(90deg);
+  }
+
+  /* Icons */
+  .tree-icon {
+    font-size: 1.125rem;
+    flex-shrink: 0;
+  }
+
+  .project-icon {
+    font-size: 1.25rem;
+  }
+
+  /* Links */
+  .tree-link {
+    flex: 1;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+  }
+
+  .tree-link:hover {
+    color: var(--primary);
+  }
+
+  .project-header .tree-link {
+    font-weight: 600;
+    font-size: 1.05rem;
+  }
+
+  .subproject-header .tree-link {
+    font-weight: 600;
+  }
+
+  /* Badges */
+  .tree-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .visibility-badge,
+  .status-badge {
+    font-size: 0.875rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    transition: all 0.2s ease;
+  }
+
+  .visibility-badge {
+    cursor: help;
+  }
+
+  .visibility-public {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+  }
+
+  .visibility-gated {
+    background: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+  }
+
+  .visibility-private {
+    background: rgba(220, 38, 38, 0.1);
+    color: #DC2626;
+  }
+
+  .visibility-inherit {
+    background: rgba(107, 114, 128, 0.1);
+    color: #6B7280;
+  }
+
+  .status-active {
+    background: rgba(0, 208, 132, 0.1);
+    color: var(--primary);
+  }
+
+  .status-draft {
+    background: rgba(107, 114, 128, 0.1);
+    color: #6B7280;
+  }
+
+  .status-archived {
+    background: rgba(107, 114, 128, 0.1);
+    color: #6B7280;
+  }
+
+  /* Compact Mode */
+  .compact .tree-item {
+    padding: 0.375rem;
+  }
+
+  .compact .tree-icon {
+    font-size: 1rem;
+  }
+
+  .compact .tree-link {
+    font-size: 0.875rem;
+  }
+
+  .compact .visibility-badge {
+    font-size: 0.75rem;
+  }
+
+  /* Dark Mode Support */
+  @media (prefers-color-scheme: dark) {
+    .project-tree {
+      background: var(--bg-elevated, #1F2937);
+      border-color: var(--gray-700, #374151);
+    }
+
+    .tree-children {
+      border-left-color: var(--gray-700, #374151);
+    }
+
+    .tree-item:hover {
+      background: var(--bg-hover, #374151);
+    }
+
+    .expand-toggle:hover {
+      background: var(--gray-700, #374151);
+    }
+  }
+</style>
+
+<script>
+  // Add expand/collapse functionality
+  document.addEventListener('astro:page-load', () => {
+    const toggleButtons = document.querySelectorAll('.expand-toggle');
+
+    toggleButtons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const treeItem = button.closest('.tree-item');
+        const parentNode = treeItem?.parentElement;
+
+        if (parentNode) {
+          const isCollapsed = parentNode.getAttribute('data-collapsed') === 'true';
+          parentNode.setAttribute('data-collapsed', isCollapsed ? 'false' : 'true');
+        }
+      });
+    });
+
+    // Initialize all nodes as expanded by default
+    document.querySelectorAll('.project-node, .subproject-node').forEach(node => {
+      if (!node.hasAttribute('data-collapsed')) {
+        node.setAttribute('data-collapsed', 'false');
+      }
+    });
+  });
+</script>
