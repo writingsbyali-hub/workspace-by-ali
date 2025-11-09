@@ -1,28 +1,41 @@
 import { useEffect, useState } from 'react';
+import { usePreferencesWithFallback } from '../providers/PreferencesProvider';
 
 export default function ThemeSettings() {
+  const { preferences, setTheme: setThemePreference, loading } = usePreferencesWithFallback();
   const [theme, setTheme] = useState<'workspace-light' | 'workspace-dark'>('workspace-light');
 
   useEffect(() => {
-    // Check localStorage for saved theme preference
-    const savedTheme = localStorage.getItem('theme') as 'workspace-light' | 'workspace-dark' | null;
+    if (loading) return;
 
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.documentElement.setAttribute('data-theme', savedTheme);
-    } else {
-      // Check system preference
+    // Get theme from preferences or system
+    let currentTheme: 'workspace-light' | 'workspace-dark';
+
+    if (preferences?.theme.preferSystemTheme) {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const defaultTheme = prefersDark ? 'workspace-dark' : 'workspace-light';
-      setTheme(defaultTheme);
-      document.documentElement.setAttribute('data-theme', defaultTheme);
+      currentTheme = prefersDark ? 'workspace-dark' : 'workspace-light';
+    } else if (preferences?.theme.mode === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      currentTheme = prefersDark ? 'workspace-dark' : 'workspace-light';
+    } else {
+      currentTheme = preferences?.theme.mode === 'workspace-dark' ? 'workspace-dark' : 'workspace-light';
     }
-  }, []);
 
-  const handleThemeChange = (newTheme: 'workspace-light' | 'workspace-dark') => {
+    setTheme(currentTheme);
+    document.documentElement.setAttribute('data-theme', currentTheme);
+  }, [preferences, loading]);
+
+  const handleThemeChange = async (newTheme: 'workspace-light' | 'workspace-dark') => {
+    // Update local state immediately for instant UI feedback
     setTheme(newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
+
+    // Sync to GitHub (async)
+    try {
+      await setThemePreference(newTheme);
+    } catch (error) {
+      console.error('[ThemeSettings] Failed to save theme preference:', error);
+    }
   };
 
   return (
@@ -116,7 +129,7 @@ export default function ThemeSettings() {
           ></path>
         </svg>
         <span className="text-sm text-blue-800 dark:text-blue-200">
-          Theme changes apply instantly and are saved to your browser
+          Theme changes apply instantly and sync across all your devices via GitHub
         </span>
       </div>
     </div>

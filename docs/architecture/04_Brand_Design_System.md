@@ -51,7 +51,7 @@ The brand draws from nature's growth cycles:
 
 ```css
 /* Personal Workspace - Cultivation & Growth */
---personal-primary: #22c55e;    /* Green-500 - Growth, vitality */
+--personal-primary: #00D084;    /* Bright Green - Growth, vitality */
 --personal-accent: #84cc16;     /* Lime-500 - Fresh, energetic */
 --personal-surface: #f0fdf4;    /* Green-50 - Light, organic */
 
@@ -75,7 +75,7 @@ The brand draws from nature's growth cycles:
 --info: #3b82f6;       /* Blue-500 - Helpful information */
 
 /* Safety Protocol States */
---safety-current: #22c55e;   /* Green - Up to date 🟢 */
+--safety-current: #00D084;   /* Green - Up to date 🟢 */
 --safety-pending: #f59e0b;   /* Amber - Review needed 🟡 */
 --safety-required: #ef4444;  /* Red - Action required 🔴 */
 ```
@@ -529,7 +529,7 @@ daisyui: {
     {
       "workspace-light": {
         "primary": "#3b82f6",      // Commons blue
-        "secondary": "#22c55e",    // Personal green
+        "secondary": "#00D084",    // Personal green
         "accent": "#8b5cf6",       // Connection purple
         "neutral": "#64748b",      // Slate
         "base-100": "#ffffff",
@@ -542,7 +542,7 @@ daisyui: {
       },
       "workspace-dark": {
         "primary": "#3b82f6",
-        "secondary": "#22c55e",
+        "secondary": "#00D084",
         "accent": "#8b5cf6",
         "neutral": "#1f2937",
         "base-100": "#0a0a0a",
@@ -582,7 +582,7 @@ Add to `src/styles/global.css`:
   --radius-lg: 16px;
 
   /* Context colors */
-  --personal-primary: #22c55e;
+  --personal-primary: #00D084;
   --commons-primary: #3b82f6;
 }
 
@@ -626,7 +626,7 @@ Add to `src/styles/global.css`:
 ## 12. Brand Application Examples
 
 ### Personal Workspace UI
-- **Primary color**: Green (#22c55e)
+- **Primary color**: Green (#00D084)
 - **Hero section**: "Your personal lab bench on the web 🌱"
 - **CTA buttons**: Green with rounded corners
 - **Cards**: Light green accents on hover

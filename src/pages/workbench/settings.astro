@@ -1,5 +1,5 @@
 ---
-import DashboardLayout from '../../components/layouts/DashboardLayout.astro';
+import WorkbenchLayout from '../../components/layouts/WorkbenchLayout.astro';
 import ThemeSettings from '../../components/ui/ThemeSettings';
 import ProfileSettings from '../../components/ui/ProfileSettings';
 import { createSupabaseServer } from '../../lib/supabaseServer';
@@ -38,7 +38,7 @@ const repoForked = !!userRepo && userRepo.is_template_forked;
 const repoUrl = userRepo?.repo_url || null;
 ---
 
-<DashboardLayout title="Settings - Workspace">
+<WorkbenchLayout title="Settings - Workspace">
   <!-- Page Header -->
   <div class="mb-8">
     <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
@@ -202,4 +202,4 @@ const repoUrl = userRepo?.repo_url || null;
       </div>
     </div>
   </div>
-</DashboardLayout>
+</WorkbenchLayout>

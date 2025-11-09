@@ -15,6 +15,7 @@ import { useAutoSave } from '../../hooks/useAutoSave';
 import { useEditorShortcuts, type ViewMode } from '../../hooks/useEditorShortcuts';
 import { useSyncScroll } from '../../hooks/useSyncScroll';
 import { calculateStats } from '../../lib/markdown';
+import { usePreferencesWithFallback } from '../providers/PreferencesProvider';
 import {
   insertMarkdown,
   insertLink,
@@ -49,6 +50,9 @@ export function MarkdownEditor({
   autoSaveEnabled = true,
   autoSaveDebounce = 2000,
 }: MarkdownEditorProps) {
+  // Get preferences for editor view mode
+  const { preferences, setEditorViewMode, loading } = usePreferencesWithFallback();
+
   // State
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState(initialContent);
@@ -162,18 +166,25 @@ export function MarkdownEditor({
     enabled: !isTemplateModalOpen && !isShortcutsOpen,
   });
 
-  // Persist view mode
+  // Load persisted view mode from GitHub preferences
   useEffect(() => {
-    localStorage.setItem('editorViewMode', viewMode);
-  }, [viewMode]);
+    if (loading || !preferences) return;
 
-  // Load persisted view mode
-  useEffect(() => {
-    const savedMode = localStorage.getItem('editorViewMode') as ViewMode;
+    const savedMode = preferences.editor?.defaultViewMode;
     if (savedMode && ['edit', 'preview', 'split'].includes(savedMode)) {
       setViewMode(savedMode);
     }
-  }, []);
+  }, [preferences, loading]);
+
+  // Persist view mode to GitHub when changed
+  useEffect(() => {
+    if (loading || !setEditorViewMode) return;
+
+    // Sync to GitHub (async)
+    setEditorViewMode(viewMode).catch((err: Error) => {
+      console.error('[MarkdownEditor] Failed to save view mode:', err);
+    });
+  }, [viewMode, setEditorViewMode, loading]);
 
   return (
     <div className={`markdown-editor ${isFullscreen ? 'fullscreen' : ''}`}>

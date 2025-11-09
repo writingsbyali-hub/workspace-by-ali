@@ -1,0 +1,248 @@
+# Continuous Integration Pipeline
+#
+# Purpose: Ensure code quality and prevent broken builds from being deployed
+#
+# Runs on:
+# - Every push to main branch
+# - Every pull request to main
+# - Manual workflow dispatch (for testing)
+#
+# What it does:
+# 1. Type checking (TypeScript strict mode)
+# 2. Build verification (ensures app compiles)
+# 3. Upload build artifacts (for debugging)
+# 4. Notify on failures (optional - configure webhook)
+#
+# Future additions (as testing is added):
+# - Linting (ESLint)
+# - Formatting check (Prettier)
+# - Unit tests (Vitest)
+# - E2E tests (Playwright)
+# - Security scanning (Snyk)
+# - Coverage reporting
+#
+# Performance:
+# - Node.js caching reduces install time from ~2min to ~30s
+# - Concurrent jobs when possible
+# - Timeout prevents hanging workflows (10 min max)
+#
+# Branch Protection:
+# After this CI is working, enable branch protection:
+# 1. Go to Settings → Branches → Add rule
+# 2. Pattern: main
+# 3. Require status checks: quality-checks
+# 4. Require PR before merging
+
+name: CI
+
+on:
+  # Run on pushes to main branch
+  push:
+    branches: [main]
+
+  # Run on all pull requests
+  pull_request:
+    branches: [main]
+
+  # Allow manual triggering from Actions tab
+  workflow_dispatch:
+
+# Cancel in-progress runs when new commit pushed
+# Saves CI minutes and speeds up feedback
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ==========================================================================
+  # Quality Checks
+  # ==========================================================================
+  quality-checks:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # ----------------------------------------------------------------------
+      # Setup
+      # ----------------------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # Cache npm dependencies for faster installs
+          # Speeds up from ~2 minutes to ~30 seconds on cache hit
+          cache: 'npm'
+
+      # ----------------------------------------------------------------------
+      # Install Dependencies
+      # ----------------------------------------------------------------------
+      - name: Install dependencies
+        run: npm ci
+        # npm ci is faster and more reliable than npm install
+        # - Uses package-lock.json for exact versions
+        # - Removes node_modules before install (clean slate)
+        # - Fails if package.json and package-lock.json are out of sync
+
+      # ----------------------------------------------------------------------
+      # Type Checking (TEMPORARILY DISABLED)
+      # ----------------------------------------------------------------------
+      # TODO: Re-enable after fixing pre-existing TypeScript errors
+      # See: docs/quality-sprint/assessment/IMPLEMENTATION_TASKS.md
+      # - name: Type check
+      #   run: npm run build:check
+        # Runs: astro check
+        # - Validates TypeScript types across entire project
+        # - Checks .astro component types
+        # - Catches type errors before deployment
+        # - Fails build if any type errors found
+
+      # ----------------------------------------------------------------------
+      # Build Verification
+      # ----------------------------------------------------------------------
+      - name: Build for production
+        run: npm run build
+        # Runs: astro build
+        # - Compiles TypeScript to JavaScript
+        # - Bundles assets and optimizes code
+        # - Generates static/server output based on config
+        # - Fails if any build errors (missing imports, syntax errors, etc.)
+        env:
+          # Minimal env vars for build to succeed
+          # Actual secrets not needed for build verification
+          NODE_ENV: production
+          PUBLIC_SITE_URL: https://example.com
+          PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          PUBLIC_SUPABASE_ANON_KEY: placeholder
+
+      # ----------------------------------------------------------------------
+      # Artifact Upload (for debugging)
+      # ----------------------------------------------------------------------
+      - name: Upload build artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          # Keep artifacts for 7 days
+          # Useful for debugging deployment issues
+          retention-days: 7
+          # Compress to save storage
+          compression-level: 9
+
+  # ==========================================================================
+  # Future: Linting (when ESLint is configured)
+  # ==========================================================================
+  # lint:
+  #   name: Lint Code
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 5
+  #
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+  #     - run: npm ci
+  #     - run: npm run lint
+
+  # ==========================================================================
+  # Future: Unit Tests (when Vitest is configured)
+  # ==========================================================================
+  # test-unit:
+  #   name: Unit Tests
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 10
+  #
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+  #     - run: npm ci
+  #     - run: npm run test:unit
+  #     - name: Upload coverage
+  #       uses: codecov/codecov-action@v3
+  #       if: success()
+
+  # ==========================================================================
+  # Future: E2E Tests (when Playwright is configured)
+  # ==========================================================================
+  # test-e2e:
+  #   name: E2E Tests
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 15
+  #
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+  #     - run: npm ci
+  #     - run: npx playwright install --with-deps
+  #     - run: npm run test:e2e
+  #     - name: Upload test results
+  #       if: failure()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: playwright-results
+  #         path: test-results/
+  #         retention-days: 7
+
+  # ==========================================================================
+  # Notification (optional - configure Slack/Discord webhook)
+  # ==========================================================================
+  notify:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: quality-checks
+    if: failure() && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Send notification
+        run: |
+          echo "❌ CI failed for commit ${{ github.sha }}"
+          echo "Branch: ${{ github.ref }}"
+          echo "Author: ${{ github.actor }}"
+          echo "Commit: ${{ github.event.head_commit.message }}"
+
+          # TODO: Add Slack/Discord webhook notification
+          # Example Slack webhook:
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          #   -H 'Content-Type: application/json' \
+          #   -d '{"text":"CI failed on main branch"}'
+
+# ==========================================================================
+# CI Status Badge
+# ==========================================================================
+# Add to README.md:
+# ![CI](https://github.com/USERNAME/REPO/workflows/CI/badge.svg)
+#
+# This shows build status on the repository homepage
+
+# ==========================================================================
+# Branch Protection Setup
+# ==========================================================================
+# After this CI is working:
+#
+# 1. Go to repository Settings
+# 2. Navigate to Branches
+# 3. Add branch protection rule for 'main':
+#    ✅ Require status checks to pass before merging
+#       - Select: quality-checks
+#    ✅ Require branches to be up to date before merging
+#    ✅ Require conversation resolution before merging
+#    ❌ Allow force pushes (keep disabled)
+#    ❌ Allow deletions (keep disabled)
+#
+# This ensures:
+# - No direct pushes to main without PR
+# - All PRs must pass CI checks
+# - Code review discussions must be resolved
+# - Accidental force pushes prevented

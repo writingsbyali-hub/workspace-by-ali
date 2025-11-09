@@ -1,28 +1,21 @@
 ---
-import DashboardLayout from '../../components/layouts/DashboardLayout.astro';
-import Breadcrumb from '../../components/ui/Breadcrumb';
+import WorkspaceLayout from '../../components/layouts/WorkspaceLayout.astro';
+import SafetyModal from '../../components/workspace/SafetyModal';
 import { createSupabaseServer } from '../../lib/supabaseServer';
 import { formatDistanceToNow } from 'date-fns';
 import { createReader } from '@keystatic/core/reader';
 import keystaticConfig from '../../../keystatic.config';
 import { DocumentRenderer } from '@keystatic/core/renderer';
+import { getRequirementsForContent } from '../../lib/gatingRequirements';
 
 // Get update slug from URL
 const { id: slug } = Astro.params;
 
-// Get user
-const supabase = createSupabaseServer(Astro.cookies);
-const { data: { user } } = await supabase.auth.getUser();
-
-if (!user) {
-  return Astro.redirect('/login');
-}
-
 if (!slug) {
-  return Astro.redirect('/updates');
+  return Astro.redirect('/');
 }
 
-// Read update from Keystatic
+// Read update from Keystatic (Git-first)
 const reader = createReader(process.cwd(), keystaticConfig);
 
 let update;
@@ -30,196 +23,641 @@ try {
   update = await reader.collections.updates.read(slug);
 } catch (error) {
   console.error('Error fetching update:', error);
-  return Astro.redirect('/updates');
+  return Astro.redirect('/');
 }
 
 if (!update) {
-  return Astro.redirect('/updates');
+  return Astro.redirect('/');
+}
+
+// Get user info to check owner status and gating
+const supabase = createSupabaseServer(Astro.cookies);
+const { data: { user } } = await supabase.auth.getUser();
+
+// Get workspace owner ID and settings
+let workspaceOwnerId: string | null = null;
+const { data: workspaceSettings } = await supabase
+  .from('workspace_settings')
+  .select('owner_id, workspace_name')
+  .single();
+workspaceOwnerId = workspaceSettings?.owner_id || null;
+
+let isOwner = false;
+if (user && workspaceOwnerId) {
+  isOwner = user.id === workspaceOwnerId;
+}
+
+// Check if user has acknowledged gated content
+let hasAcknowledged = false;
+if (update.gated && user && workspaceOwnerId) {
+  // Get all acknowledgment requirement keys for this content
+  const requirements = getRequirementsForContent('update', slug);
+  const requiredKeys = requirements.map(r => r.key);
+
+  // For updates, we check acknowledgments for the parent project
+  // (since updates inherit their parent project's gating requirements)
+  const projectSlug = update.projectSlug || null;
+
+  // Check if user has acknowledged ALL required keys
+  const { data: acknowledgments } = await supabase
+    .from('reader_acknowledgments')
+    .select('acknowledgment_code')
+    .eq('user_id', user.id)
+    .eq('workspace_owner_id', workspaceOwnerId)
+    .eq('acknowledgment_type', 'safety')
+    .eq('project_slug', projectSlug)
+    .is('subproject_slug', null);
+
+  const acknowledgedKeys = acknowledgments?.map(a => a.acknowledgment_code) || [];
+  hasAcknowledged = requiredKeys.every(key => acknowledgedKeys.includes(key));
+}
+
+// For gated content, show modal if not acknowledged (and user is not owner)
+const needsAcknowledgment = update.gated && !hasAcknowledged && !isOwner;
+
+// Get requirements for the modal
+const gatingRequirements = getRequirementsForContent('update', slug);
+const researcherName = workspaceSettings?.workspace_name || 'the researcher';
+
+// Get related project if exists
+let relatedProject = null;
+if (update.projectSlug) {
+  try {
+    relatedProject = await reader.collections.projects.read(update.projectSlug);
+  } catch (error) {
+    console.error('Error fetching related project:', error);
+  }
 }
 
 // Format dates
 const updateDate = new Date(update.date || Date.now());
 const createdAgo = formatDistanceToNow(updateDate, { addSuffix: true });
 
-// Get type badge color
-const getTypeBadgeClass = (type: string) => {
-  const types: Record<string, string> = {
-    'experiment': 'badge-primary',
-    'observation': 'badge-secondary',
-    'milestone': 'badge-accent',
-    'note': 'badge-info',
-  };
-  return types[type] || 'badge-ghost';
+// Get type badge color mapping
+const typeBadgeMap: Record<string, string> = {
+  'experiment': 'badge-experiment',
+  'observation': 'badge-observation',
+  'milestone': 'badge-milestone',
+  'note': 'badge-note',
 };
+const typeBadgeClass = typeBadgeMap[update.type || 'note'] || 'badge-note';
 ---
 
-<DashboardLayout title={`${update.title} - Workspace`}>
+<WorkspaceLayout
+  title={`${update.title} - Update`}
+  description={update.summary || `View update: ${update.title}`}
+>
   <!-- Breadcrumb -->
-  <Breadcrumb
-    client:load
-    items={[
-      { label: 'Dashboard', href: '/' },
-      { label: 'Updates', href: '/updates' },
-      { label: update.title }
-    ]}
-  />
-
-  <!-- Header -->
-  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-    <div class="flex-1">
-      <div class="flex items-center gap-3 mb-3">
-        <h1 class="text-3xl font-bold text-base-content">
-          {update.title}
-        </h1>
-
-        <!-- Type badge -->
-        {update.type && (
-          <div class={`badge ${getTypeBadgeClass(update.type)} badge-lg`}>
-            {update.type}
-          </div>
-        )}
-      </div>
-
-      <div class="flex flex-wrap gap-4 text-sm text-base-content/60">
-        <!-- Created date -->
-        <div class="flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" class="w-4 h-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {createdAgo}
-        </div>
-
-        <!-- Linked project -->
-        {update.projectSlug && (
-          <div class="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" class="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776" />
-            </svg>
-            <a href={`/projects/${update.projectSlug}`} class="link link-hover text-primary">
-              {update.projectSlug}
-            </a>
-          </div>
-        )}
-
-        <!-- Tags -->
-        {update.tags && update.tags.length > 0 && (
-          <div class="flex items-center gap-2">
-            {update.tags.map((tag) => (
-              <span class="badge badge-sm badge-outline">{tag}</span>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-
-    <!-- Action buttons -->
-    <div class="flex gap-2">
-      <a href="/keystatic#/collection/updates" class="btn btn-ghost">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" class="w-5 h-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-        </svg>
-        Edit in Keystatic
-      </a>
-    </div>
+  <div class="breadcrumb-nav">
+    <a href="/" class="breadcrumb-link">Welcome</a>
+    <span class="breadcrumb-separator">/</span>
+    {relatedProject ? (
+      <>
+        <a href="/projects" class="breadcrumb-link">My Projects</a>
+        <span class="breadcrumb-separator">/</span>
+        <a href={`/projects/${update.projectSlug}`} class="breadcrumb-link">{relatedProject.title}</a>
+        <span class="breadcrumb-separator">/</span>
+      </>
+    ) : (
+      <>
+        <a href="/updates" class="breadcrumb-link">Updates</a>
+        <span class="breadcrumb-separator">/</span>
+      </>
+    )}
+    <span class="breadcrumb-current">{update.title}</span>
   </div>
+
+  <!-- Update Header -->
+  <div class="update-header">
+    <div class="header-main">
+      <div class="title-section">
+        <h1 class="update-title">{update.title}</h1>
+        <div class="update-badges">
+          <!-- Type Badge -->
+          {update.type && (
+            <span class={`badge ${typeBadgeClass}`}>
+              {update.type}
+            </span>
+          )}
+
+          <!-- Gated Badge -->
+          {update.gated && (
+            <span class="badge badge-gated">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              Gated
+            </span>
+          )}
+
+          <!-- Tags -->
+          {update.tags && update.tags.length > 0 && update.tags.map((tag) => (
+            <span class="badge badge-tag">{tag}</span>
+          ))}
+        </div>
+      </div>
+
+      <div class="update-meta">
+        <div class="meta-item">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-small">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          </svg>
+          <span>{new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' }).format(updateDate)}</span>
+        </div>
+        <div class="meta-item">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-small">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{createdAgo}</span>
+        </div>
+        {relatedProject && (
+          <div class="meta-item">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-small">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+            </svg>
+            <a href={`/projects/${update.projectSlug}`} class="meta-link">{relatedProject.title}</a>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {isOwner && (
+      <div class="owner-actions">
+        <a href="/workbench/updates" class="btn-secondary">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+          </svg>
+          Manage in Workbench
+        </a>
+      </div>
+    )}
+  </div>
+
+  <!-- Gating Modal (Phase 3) -->
+  {needsAcknowledgment && (
+    <div id="safetyModalContainer">
+      <SafetyModal
+        client:only="react"
+        contentSlug={update.projectSlug || slug}
+        contentType="update"
+        requirements={gatingRequirements}
+        researcherName={researcherName}
+        onAcknowledge={() => {
+          // Reload the page to show the content
+          window.location.reload();
+        }}
+      />
+    </div>
+  )}
 
   <!-- Update Content -->
-  <div class="card bg-base-100 shadow mb-8">
-    <div class="card-body">
-      {update.content ? (
-        <div class="prose max-w-none">
-          <DocumentRenderer document={update.content} />
-        </div>
-      ) : (
-        <p class="text-base-content/40 italic">No content provided</p>
-      )}
-    </div>
-  </div>
-
-  <!-- Metadata Card -->
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <!-- Update Info -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body">
-        <h3 class="card-title text-lg mb-4">Update Information</h3>
-
-        <div class="space-y-3">
-          <div class="flex justify-between items-center">
-            <span class="text-base-content/60">Type</span>
-            <div class={`badge ${getTypeBadgeClass(update.type || 'note')}`}>
-              {update.type || 'note'}
-            </div>
+  {!needsAcknowledgment && (
+    <div class="content-section">
+      <div class="update-content">
+        {update.content ? (
+          <div class="prose">
+            <DocumentRenderer document={update.content} />
           </div>
+        ) : update.summary ? (
+          <p class="summary-text">{update.summary}</p>
+        ) : (
+          <p class="empty-text">No content available for this update.</p>
+        )}
+      </div>
+    </div>
+  )}
 
-          <div class="flex justify-between items-center">
-            <span class="text-base-content/60">Date</span>
-            <span class="text-base-content font-medium">
-              {new Intl.DateTimeFormat('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-              }).format(updateDate)}
+  <!-- Update Metadata -->
+  {!needsAcknowledgment && (
+    <div class="metadata-grid">
+      <!-- Update Information -->
+      <div class="metadata-card">
+        <h3 class="metadata-title">Update Information</h3>
+        <div class="metadata-list">
+          <div class="metadata-item">
+            <span class="metadata-label">Type</span>
+            <span class={`badge ${typeBadgeClass}`}>{update.type || 'note'}</span>
+          </div>
+          <div class="metadata-item">
+            <span class="metadata-label">Date</span>
+            <span class="metadata-value">
+              {new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(updateDate)}
             </span>
           </div>
-
-          {update.projectSlug && (
-            <div class="flex justify-between items-center">
-              <span class="text-base-content/60">Project</span>
-              <a href={`/projects/${update.projectSlug}`} class="link link-primary font-medium">
-                {update.projectSlug}
-              </a>
+          {relatedProject && (
+            <div class="metadata-item">
+              <span class="metadata-label">Project</span>
+              <a href={`/projects/${update.projectSlug}`} class="metadata-link">{relatedProject.title}</a>
             </div>
           )}
-
           {update.subProjectSlug && (
-            <div class="flex justify-between items-center">
-              <span class="text-base-content/60">Sub-Project</span>
-              <span class="text-base-content font-medium">
-                {update.subProjectSlug}
-              </span>
+            <div class="metadata-item">
+              <span class="metadata-label">Sub-Project</span>
+              <span class="metadata-value">{update.subProjectSlug}</span>
             </div>
           )}
-
-          <div class="flex justify-between items-center">
-            <span class="text-base-content/60">Slug</span>
-            <code class="text-xs bg-base-200 px-2 py-1 rounded">
-              {slug}
-            </code>
-          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Quick Actions -->
-    <div class="card bg-base-100 shadow">
-      <div class="card-body">
-        <h3 class="card-title text-lg mb-4">Quick Actions</h3>
-
-        <div class="space-y-2">
-          <a href="/keystatic#/collection/updates" class="btn btn-block bg-personal-primary hover:bg-personal-primary-hover text-white border-0">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" class="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            Create New Update
-          </a>
-
-          <a href="/updates" class="btn btn-block btn-ghost">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" class="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
-            </svg>
-            View All Updates
-          </a>
-
-          {update.projectSlug && (
-            <a href={`/projects/${update.projectSlug}`} class="btn btn-block btn-ghost">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" class="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776" />
+      <!-- Quick Navigation -->
+      <div class="metadata-card">
+        <h3 class="metadata-title">Quick Navigation</h3>
+        <div class="nav-links">
+          {relatedProject && (
+            <a href={`/projects/${update.projectSlug}`} class="nav-link">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
               </svg>
-              Go to Project
+              View Project
             </a>
           )}
+          <a href="/projects" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 6.878V6a2.25 2.25 0 012.25-2.25h7.5A2.25 2.25 0 0118 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 004.5 9v.878m13.5-3A2.25 2.25 0 0119.5 9v.878m0 0a2.246 2.246 0 00-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0121 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6c0-.98.626-1.813 1.5-2.122" />
+            </svg>
+            All Projects
+          </a>
         </div>
       </div>
     </div>
-  </div>
-</DashboardLayout>
+  )}
+</WorkspaceLayout>
+
+<style>
+  /* Breadcrumb */
+  .breadcrumb-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    font-size: 0.875rem;
+    flex-wrap: wrap;
+  }
+
+  .breadcrumb-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .breadcrumb-link:hover {
+    color: var(--primary);
+  }
+
+  .breadcrumb-separator {
+    color: var(--text-tertiary);
+  }
+
+  .breadcrumb-current {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  /* Update Header */
+  .update-header {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .header-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .title-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .update-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .update-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+
+  .badge-experiment {
+    background: var(--primary-bg);
+    color: var(--primary);
+  }
+
+  .badge-observation {
+    background: #e0e7ff;
+    color: #4f46e5;
+  }
+
+  .badge-milestone {
+    background: #fef3c7;
+    color: #d97706;
+  }
+
+  .badge-note {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+  }
+
+  .badge-gated {
+    background: var(--warning-bg);
+    color: var(--warning);
+  }
+
+  .badge-tag {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+  }
+
+  .update-meta {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  .meta-link {
+    color: var(--primary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .meta-link:hover {
+    color: var(--primary-dark);
+  }
+
+  .owner-actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  /* Gating Notice */
+  .gating-notice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 3rem 2rem;
+    background: var(--warning-bg);
+    border: 2px solid var(--warning);
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .notice-icon {
+    margin-bottom: 1.5rem;
+    color: var(--warning);
+  }
+
+  .notice-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .notice-description {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+    max-width: 600px;
+  }
+
+  /* Content Section */
+  .content-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .update-content {
+    color: var(--text-primary);
+  }
+
+  .prose {
+    max-width: none;
+    color: var(--text-primary);
+  }
+
+  .prose :global(h1),
+  .prose :global(h2),
+  .prose :global(h3),
+  .prose :global(h4) {
+    color: var(--text-primary);
+  }
+
+  .prose :global(p) {
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .prose :global(a) {
+    color: var(--primary);
+  }
+
+  .prose :global(code) {
+    background: var(--bg-tertiary);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+  }
+
+  .summary-text {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  .empty-text {
+    font-size: 1rem;
+    color: var(--text-tertiary);
+    font-style: italic;
+    text-align: center;
+    padding: 2rem;
+  }
+
+  /* Metadata Grid */
+  .metadata-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .metadata-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+
+  .metadata-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+  }
+
+  .metadata-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .metadata-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .metadata-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+
+  .metadata-value {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .metadata-link {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .metadata-link:hover {
+    color: var(--primary-dark);
+  }
+
+  .nav-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .nav-link:hover {
+    border-color: var(--primary);
+    transform: translateX(4px);
+  }
+
+  /* Icon Sizing */
+  .icon-small {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .icon-medium {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .icon-large {
+    width: 4rem;
+    height: 4rem;
+  }
+
+  /* Buttons */
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-dark);
+  }
+
+  .btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .btn-secondary:hover {
+    background: var(--bg-hover);
+  }
+
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
+    .update-title {
+      font-size: 1.5rem;
+    }
+
+    .metadata-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .update-meta {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .owner-actions {
+      flex-direction: column;
+    }
+  }
+</style>
+

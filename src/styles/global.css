@@ -180,6 +180,57 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* ============================================ */
+  /* ACCESSIBILITY: FOCUS INDICATORS */
+  /* ============================================ */
+
+  /* Global focus-visible styles for keyboard navigation */
+  *:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+    transition: outline-offset 0.15s ease;
+  }
+
+  /* Enhanced focus for interactive elements */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [role="button"]:focus-visible,
+  [role="link"]:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* Focus styles for buttons with backgrounds */
+  button.btn-primary:focus-visible,
+  button.btn-secondary:focus-visible,
+  .btn-primary:focus-visible,
+  .btn-secondary:focus-visible {
+    outline: 3px solid var(--primary-dark);
+    outline-offset: 2px;
+  }
+
+  /* Focus styles for inputs with error states */
+  input.error:focus-visible,
+  textarea.error:focus-visible,
+  select.error:focus-visible {
+    outline: 3px solid var(--error);
+    outline-offset: 2px;
+  }
+
+  /* Remove default focus outline to use our custom one */
+  *:focus {
+    outline: none;
+  }
+
+  /* Show outline only on keyboard focus, not mouse clicks */
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
+
   /* Typography */
   h1 {
     font-size: 32px;
@@ -1953,6 +2004,27 @@
 }
 
 @layer utilities {
+  /* Skip link for accessibility */
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--primary);
+    color: white;
+    padding: 8px 16px;
+    text-decoration: none;
+    border-radius: 0 0 4px 0;
+    font-weight: 600;
+    z-index: 9999;
+    transition: top 0.2s ease;
+  }
+
+  .skip-link:focus {
+    top: 0;
+    outline: 3px solid var(--primary-dark);
+    outline-offset: 2px;
+  }
+
   /* Custom scrollbar */
   .scrollbar-thin::-webkit-scrollbar {
     width: 8px;

@@ -17,19 +17,50 @@ const SALT_LENGTH = 64;
 
 /**
  * Get encryption key from environment
- * Falls back to a default key for development (NOT for production)
+ *
+ * SECURITY: No fallback key - requires proper environment configuration
+ * This ensures tokens are never encrypted with a weak default key
+ *
+ * @throws {Error} If GITHUB_TOKEN_ENCRYPTION_KEY is not set or invalid
+ * @returns {Buffer} 32-byte encryption key for AES-256-GCM
  */
 function getEncryptionKey(): Buffer {
   const key = import.meta.env.GITHUB_TOKEN_ENCRYPTION_KEY || process.env.GITHUB_TOKEN_ENCRYPTION_KEY;
 
+  // CRITICAL: No fallback key - fail fast if not configured
   if (!key) {
-    console.warn('[Token Encryption] Warning: Using default encryption key. Set GITHUB_TOKEN_ENCRYPTION_KEY in production!');
-    // Default key for development only - DO NOT use in production
-    return Buffer.from('dev-encryption-key-please-change-in-production-32bytes!', 'utf-8');
+    throw new Error(
+      'GITHUB_TOKEN_ENCRYPTION_KEY environment variable is required.\n' +
+      'Generate a secure 32-byte key with:\n' +
+      '  node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))"\n' +
+      'Then add to .env file:\n' +
+      '  GITHUB_TOKEN_ENCRYPTION_KEY=<generated-key>'
+    );
   }
 
   // Convert base64 key to buffer
-  return Buffer.from(key, 'base64');
+  let keyBuffer: Buffer;
+  try {
+    keyBuffer = Buffer.from(key, 'base64');
+  } catch (error) {
+    throw new Error(
+      'GITHUB_TOKEN_ENCRYPTION_KEY must be a valid base64-encoded string.\n' +
+      'Generate a new key with:\n' +
+      '  node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))"'
+    );
+  }
+
+  // SECURITY: Validate key length (AES-256 requires 32 bytes)
+  if (keyBuffer.length !== 32) {
+    throw new Error(
+      `GITHUB_TOKEN_ENCRYPTION_KEY must be exactly 32 bytes (256 bits).\n` +
+      `Current length: ${keyBuffer.length} bytes.\n` +
+      `Generate a correct key with:\n` +
+      `  node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
+    );
+  }
+
+  return keyBuffer;
 }
 
 /**

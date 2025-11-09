@@ -6,185 +6,627 @@ import { createSupabaseServer } from '../lib/supabaseServer';
 const supabase = createSupabaseServer(Astro.cookies);
 const { data: { user } } = await supabase.auth.getUser();
 
-// TODO: Fetch safety protocols from database or config
-// TODO: Fetch user's acknowledgment history if authenticated
-// TODO: Add re-acknowledgment functionality when protocols update
-// TODO: Add explanation of gating system
+// Fetch user's acknowledgment history if authenticated
+let acknowledgments: any[] = [];
+if (user) {
+  const { data: acks } = await supabase
+    .from('reader_acknowledgments')
+    .select('content_slug, acknowledged_at')
+    .eq('user_id', user.id)
+    .order('acknowledged_at', { ascending: false });
+
+  acknowledgments = acks || [];
+}
 ---
 
-<WorkspaceLayout title="Safety Protocols - Workspace" description="Research safety protocols and acknowledgments">
-  <div class="safety-page">
-    <h1 class="page-title">Safety & Ethical Research</h1>
+<WorkspaceLayout
+  title="My Research Rules"
+  description="Safety protocols and ethical guidelines for responsible research"
+>
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+      </svg>
+    </div>
+    <h1 class="page-title">My Research Rules</h1>
+    <p class="page-description">
+      How I ensure responsible, ethical, and transparent research practices
+    </p>
+  </div>
 
-    <section class="intro-section">
-      <p class="intro-text">
-        This workspace follows strict safety and ethical guidelines for research publication.
-        Some content may be gated and require acknowledgment before access.
-      </p>
-    </section>
-
-    <div class="content-placeholder">
-      <h2>📋 TODO: Safety Center Features</h2>
-
-      <div class="feature-grid">
-        <div class="feature-card">
-          <h3>Safety Protocols</h3>
-          <ul>
-            <li>List all active safety protocols</li>
-            <li>Show protocol versions and update dates</li>
-            <li>Link to full protocol documents</li>
-          </ul>
+  <!-- Why Gating Exists -->
+  <div class="content-section hero-section">
+    <h2 class="section-title">Why Some Content is Gated</h2>
+    <p class="section-text">
+      Research is powerful, and with power comes responsibility. Some of my projects involve:
+    </p>
+    <div class="reasons-grid">
+      <div class="reason-card">
+        <div class="reason-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
         </div>
+        <h3 class="reason-title">Safety Considerations</h3>
+        <p class="reason-description">
+          Research involving chemicals, biological materials, or physical risks that readers should understand before replicating
+        </p>
+      </div>
 
-        <div class="feature-card">
-          <h3>Gating System</h3>
-          <ul>
-            <li>Explain why content is gated</li>
-            <li>Show which projects require acknowledgment</li>
-            <li>Display acknowledgment process</li>
-          </ul>
+      <div class="reason-card">
+        <div class="reason-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+          </svg>
         </div>
+        <h3 class="reason-title">Licensing Requirements</h3>
+        <p class="reason-description">
+          Work licensed under specific terms (CC-BY, GPL, etc.) that readers must acknowledge before use
+        </p>
+      </div>
 
-        <div class="feature-card">
-          <h3>Your Acknowledgments</h3>
-          {user ? (
-            <ul>
-              <li>Show user's acknowledgment history</li>
-              <li>Display acknowledged protocols</li>
-              <li>Alert if re-acknowledgment needed</li>
-            </ul>
-          ) : (
-            <p class="muted">Login to see your acknowledgment history</p>
-          )}
+      <div class="reason-card">
+        <div class="reason-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+          </svg>
         </div>
+        <h3 class="reason-title">Ethical Context</h3>
+        <p class="reason-description">
+          Research on sensitive topics where readers should understand ethical implications and proper usage
+        </p>
+      </div>
 
-        <div class="feature-card">
-          <h3>Responsible Science</h3>
-          <ul>
-            <li>Explain open science principles</li>
-            <li>Link to ethical guidelines</li>
-            <li>Show how to report concerns</li>
-          </ul>
+      <div class="reason-card">
+        <div class="reason-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+          </svg>
+        </div>
+        <h3 class="reason-title">Community Standards</h3>
+        <p class="reason-description">
+          Ensuring all readers understand community guidelines and responsible use expectations
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- How Gating Works -->
+  <div class="content-section">
+    <h2 class="section-title">How the Gating System Works</h2>
+    <div class="steps-container">
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3 class="step-title">Browse Freely</h3>
+          <p class="step-description">
+            All public content is immediately accessible. You'll see which projects or updates are gated
+            with clear lock icons.
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3 class="step-title">Click Gated Content</h3>
+          <p class="step-description">
+            When you try to access gated content, you'll see a modal explaining why it's gated and
+            what you're acknowledging.
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3 class="step-title">Read & Acknowledge</h3>
+          <p class="step-description">
+            Read the specific safety, licensing, or ethical guidelines. Check individual boxes for
+            each requirement — no bundled acknowledgments.
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h3 class="step-title">Access Granted</h3>
+          <p class="step-description">
+            Once you've acknowledged all requirements, you'll have permanent access to that content.
+            Your acknowledgment is stored securely.
+          </p>
         </div>
       </div>
     </div>
-
-    {!user && (
-      <div class="cta-section">
-        <h3>Ready to Access Gated Content?</h3>
-        <p>Create an account to acknowledge safety protocols and view restricted research.</p>
-        <a href="/login" class="btn-primary">Login or Sign Up</a>
-      </div>
-    )}
   </div>
 
-  <style>
-    .safety-page {
-      max-width: 1000px;
-      margin: 0 auto;
-    }
+  <!-- Core Principles -->
+  <div class="content-section principles-section">
+    <h2 class="section-title">My Research Principles</h2>
+    <div class="principles-grid">
+      <div class="principle-card">
+        <h3 class="principle-title">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Transparency
+        </h3>
+        <p class="principle-description">
+          I share my full methods, data, and reasoning. No hidden steps, no secret sauce.
+          If I can't explain it clearly, I haven't understood it well enough.
+        </p>
+      </div>
 
-    .page-title {
-      font-size: 2.5rem;
-      font-weight: 800;
-      margin-bottom: 1rem;
-    }
+      <div class="principle-card">
+        <h3 class="principle-title">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          Reproducibility
+        </h3>
+        <p class="principle-description">
+          Every experiment should be reproducible by others. I provide enough detail that
+          someone else could verify or build upon my work.
+        </p>
+      </div>
 
-    .intro-section {
-      margin-bottom: 3rem;
-    }
+      <div class="principle-card">
+        <h3 class="principle-title">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+          Safety First
+        </h3>
+        <p class="principle-description">
+          I won't publish anything that could cause harm without proper context and warnings.
+          Gating ensures readers understand risks before proceeding.
+        </p>
+      </div>
 
-    .intro-text {
-      font-size: 1.125rem;
-      color: var(--text-muted);
-      line-height: 1.6;
-    }
+      <div class="principle-card">
+        <h3 class="principle-title">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+          </svg>
+          Rapid Iteration
+        </h3>
+        <p class="principle-description">
+          Research moves fast. I publish early and often, updating as I learn. You'll see
+          my thinking evolve in real-time, mistakes and all.
+        </p>
+      </div>
 
-    .content-placeholder h2 {
-      text-align: center;
-      font-size: 1.75rem;
-      color: var(--text-muted);
-      margin-bottom: 2rem;
-    }
+      <div class="principle-card">
+        <h3 class="principle-title">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+          </svg>
+          Open Collaboration
+        </h3>
+        <p class="principle-description">
+          Science works best together. I welcome questions, feedback, and contributions
+          from anyone interested in the work.
+        </p>
+      </div>
 
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 3rem;
-    }
+      <div class="principle-card">
+        <h3 class="principle-title">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+          </svg>
+          Knowledge Preservation
+        </h3>
+        <p class="principle-description">
+          All my work is version controlled in Git. Every change is tracked, every decision
+          is documented. The full history is auditable forever.
+        </p>
+      </div>
+    </div>
+  </div>
 
-    .feature-card {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: 0.75rem;
-      padding: 1.5rem;
-    }
+  <!-- User's Acknowledgments -->
+  {user && acknowledgments.length > 0 && (
+    <div class="content-section acknowledgments-section">
+      <h2 class="section-title">Your Acknowledgments</h2>
+      <p class="section-text">
+        You have acknowledged {acknowledgments.length} piece{acknowledgments.length === 1 ? '' : 's'} of gated content:
+      </p>
+      <div class="acknowledgments-list">
+        {acknowledgments.slice(0, 10).map((ack) => (
+          <div class="acknowledgment-item">
+            <div class="ack-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div class="ack-content">
+              <div class="ack-slug">{ack.content_slug}</div>
+              <div class="ack-date">
+                Acknowledged {new Date(ack.acknowledged_at).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {acknowledgments.length > 10 && (
+        <p class="more-text">...and {acknowledgments.length - 10} more</p>
+      )}
+    </div>
+  )}
 
-    .feature-card h3 {
-      font-size: 1.125rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-      color: var(--primary);
-    }
-
-    .feature-card ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    .feature-card li {
-      padding: 0.5rem 0;
-      color: var(--text-secondary);
-      font-size: 0.9375rem;
-    }
-
-    .feature-card li:before {
-      content: "• ";
-      color: var(--primary);
-      font-weight: bold;
-      margin-right: 0.5rem;
-    }
-
-    .muted {
-      color: var(--text-muted);
-      font-style: italic;
-      font-size: 0.9375rem;
-    }
-
-    .cta-section {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      border-radius: 1rem;
-      padding: 2rem;
-      text-align: center;
-      color: white;
-    }
-
-    .cta-section h3 {
-      font-size: 1.5rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .cta-section p {
-      margin-bottom: 1.5rem;
-      opacity: 0.9;
-    }
-
-    .btn-primary {
-      display: inline-block;
-      padding: 0.75rem 2rem;
-      background: white;
-      color: var(--primary);
-      border-radius: 0.5rem;
-      text-decoration: none;
-      font-weight: 600;
-      transition: all 0.2s;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    }
-  </style>
+  <!-- Report Concerns -->
+  <div class="content-section concerns-section">
+    <h2 class="section-title">Reporting Concerns</h2>
+    <p class="section-text">
+      If you believe any content in this workspace poses a safety risk, violates ethical guidelines,
+      or should be gated but isn't, please let me know immediately.
+    </p>
+    <div class="concerns-grid">
+      <div class="concern-box">
+        <h3 class="concern-title">Safety Issues</h3>
+        <p class="concern-description">
+          Found content that could be dangerous without proper warnings? Report it.
+        </p>
+      </div>
+      <div class="concern-box">
+        <h3 class="concern-title">Ethical Concerns</h3>
+        <p class="concern-description">
+          Noticed research that needs better ethical context or acknowledgment requirements?
+        </p>
+      </div>
+      <div class="concern-box">
+        <h3 class="concern-title">Technical Problems</h3>
+        <p class="concern-description">
+          Gating system not working? Content accessible that shouldn't be?
+        </p>
+      </div>
+    </div>
+    <p class="contact-text">
+      Contact me via <a href="/about" class="inline-link">the methods listed on my About page</a>.
+      All concerns are taken seriously and addressed promptly.
+    </p>
+  </div>
 </WorkspaceLayout>
+
+<style>
+  /* Page Header */
+  .page-header {
+    text-align: center;
+    margin-bottom: 4rem;
+  }
+
+  .header-icon {
+    width: 5rem;
+    height: 5rem;
+    margin: 0 auto 1.5rem;
+    background: var(--primary-bg);
+    color: var(--primary);
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .header-icon svg {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .page-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+  }
+
+  .page-description {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  /* Content Section */
+  .content-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .hero-section {
+    background: linear-gradient(135deg, var(--warning-bg) 0%, var(--bg-secondary) 100%);
+    border: 2px solid var(--warning);
+  }
+
+  .section-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+  }
+
+  .section-text {
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+  }
+
+  /* Reasons Grid */
+  .reasons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+
+  .reason-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 2rem;
+  }
+
+  .reason-icon {
+    width: 3rem;
+    height: 3rem;
+    background: var(--warning-bg);
+    color: var(--warning);
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+
+  .reason-icon svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .reason-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .reason-description {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  /* Steps */
+  .steps-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .step {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+
+  .step-number {
+    flex-shrink: 0;
+    width: 3rem;
+    height: 3rem;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  .step-content {
+    flex: 1;
+  }
+
+  .step-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .step-description {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  /* Principles */
+  .principles-section {
+    background: linear-gradient(135deg, var(--primary-bg) 0%, var(--bg-secondary) 100%);
+    border: 2px solid var(--primary);
+  }
+
+  .principles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .principle-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+
+  .principle-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .principle-description {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  /* Acknowledgments */
+  .acknowledgments-section {
+    background: linear-gradient(135deg, var(--success-bg) 0%, var(--bg-secondary) 100%);
+    border: 2px solid var(--success);
+  }
+
+  .acknowledgments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .acknowledgment-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+  }
+
+  .ack-icon {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    background: var(--success-bg);
+    color: var(--success);
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ack-icon svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .ack-content {
+    flex: 1;
+  }
+
+  .ack-slug {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+  }
+
+  .ack-date {
+    font-size: 0.875rem;
+    color: var(--text-tertiary);
+  }
+
+  .more-text {
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: 1rem;
+  }
+
+  /* Concerns */
+  .concerns-section {
+    background: var(--bg-primary);
+    border: 2px solid var(--error);
+  }
+
+  .concerns-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .concern-box {
+    padding: 1.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+  }
+
+  .concern-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--error);
+    margin-bottom: 0.5rem;
+  }
+
+  .concern-description {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .contact-text {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .inline-link {
+    color: var(--primary);
+    text-decoration: underline;
+    transition: color 0.2s;
+  }
+
+  .inline-link:hover {
+    color: var(--primary-dark);
+  }
+
+  /* Icon Sizing */
+  .icon-medium {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
+    .page-title {
+      font-size: 2rem;
+    }
+
+    .reasons-grid,
+    .principles-grid,
+    .concerns-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .step {
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .step-number {
+      width: 2.5rem;
+      height: 2.5rem;
+      font-size: 1rem;
+    }
+  }
+</style>

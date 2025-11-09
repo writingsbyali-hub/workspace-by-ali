@@ -1,77 +1,617 @@
 ---
 import WorkspaceLayout from '../components/layouts/WorkspaceLayout.astro';
+import { createSupabaseServer } from '../lib/supabaseServer';
 
-// TODO: Fetch researcher bio/info from workspace_settings or a static config file
-// TODO: Add researcher photo/avatar
-// TODO: Add research interests, methodologies, publications
-// TODO: Add contact information and social links
-// TODO: Add "How to collaborate" section
+// Get workspace settings for researcher name
+const supabase = createSupabaseServer(Astro.cookies);
+const { data: workspaceSettings } = await supabase
+  .from('workspace_settings')
+  .select('workspace_name')
+  .single();
+
+const researcherName = workspaceSettings?.workspace_name || 'Researcher';
+
+// Check if user is owner
+const { data: { user } } = await supabase.auth.getUser();
+let isOwner = false;
+if (user) {
+  const { data: settings } = await supabase
+    .from('workspace_settings')
+    .select('owner_id')
+    .single();
+  isOwner = user.id === settings?.owner_id;
+}
 ---
 
-<WorkspaceLayout title="About - Workspace" description="Learn about the researcher and this workspace">
-  <div class="about-page">
-    <h1 class="page-title">About This Workspace</h1>
+<WorkspaceLayout
+  title={`About ${researcherName}`}
+  description={`Learn more about ${researcherName} and their research interests`}
+>
+  <!-- Page Header -->
+  <div class="page-header">
+    <h1 class="page-title">About Me</h1>
+    <p class="page-description">
+      Learn about my research interests, methodologies, and why I'm building in public.
+    </p>
+  </div>
 
-    <div class="content-placeholder">
-      <p class="placeholder-text">
-        📝 TODO: Add researcher bio, research interests, and contact information
-      </p>
-      <ul class="todo-list">
-        <li>Researcher bio and background</li>
-        <li>Research interests and focus areas</li>
-        <li>Methodologies and approaches</li>
-        <li>Contact information and social links</li>
-        <li>How to collaborate or contribute</li>
-        <li>Lab/institution affiliations</li>
-      </ul>
+  <!-- Bio Section -->
+  <div class="content-section">
+    <div class="bio-container">
+      <!-- Researcher Photo Placeholder -->
+      <div class="photo-section">
+        <div class="researcher-photo-large">
+          <div class="photo-placeholder-large">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-xlarge">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bio Content -->
+      <div class="bio-content">
+        <h2 class="bio-title">Hi, I'm {researcherName}</h2>
+        <p class="bio-text">
+          Welcome to my research workspace! This is where I share my ongoing projects, experiments,
+          and findings in an open and transparent way.
+        </p>
+        <p class="bio-text">
+          I believe in building knowledge in public — sharing both successes and challenges as they happen.
+          This workspace serves as a living document of my research journey, allowing others to learn from
+          my process and contribute their insights.
+        </p>
+        <p class="bio-text">
+          Each project you'll find here represents a question I'm exploring, a problem I'm trying to solve,
+          or an idea I'm testing. Some are complete, others are works in progress, and a few might be
+          permanently marked as "interesting failures" — all valuable learning experiences.
+        </p>
+      </div>
     </div>
   </div>
 
-  <style>
-    .about-page {
-      max-width: 800px;
-      margin: 0 auto;
-    }
+  <!-- Research Interests -->
+  <div class="content-section">
+    <h2 class="section-title">Research Interests</h2>
+    <div class="interests-grid">
+      <div class="interest-card">
+        <div class="interest-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+          </svg>
+        </div>
+        <h3 class="interest-title">Open Science</h3>
+        <p class="interest-description">
+          Exploring methods for transparent, reproducible research and knowledge sharing.
+        </p>
+      </div>
 
+      <div class="interest-card">
+        <div class="interest-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+          </svg>
+        </div>
+        <h3 class="interest-title">Research Methods</h3>
+        <p class="interest-description">
+          Developing and testing new methodologies for conducting experiments and collecting data.
+        </p>
+      </div>
+
+      <div class="interest-card">
+        <div class="interest-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+          </svg>
+        </div>
+        <h3 class="interest-title">Knowledge Systems</h3>
+        <p class="interest-description">
+          Understanding how knowledge is created, shared, and preserved in digital communities.
+        </p>
+      </div>
+
+      <div class="interest-card">
+        <div class="interest-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+          </svg>
+        </div>
+        <h3 class="interest-title">Building in Public</h3>
+        <p class="interest-description">
+          Sharing work-in-progress, learning from failures, and collaborating transparently.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Philosophy Section -->
+  <div class="content-section">
+    <h2 class="section-title">Research Philosophy</h2>
+    <div class="philosophy-content">
+      <div class="philosophy-item">
+        <div class="philosophy-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-large">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+          </svg>
+        </div>
+        <div class="philosophy-text">
+          <h3 class="philosophy-title">Transparency First</h3>
+          <p class="philosophy-description">
+            I share my methods, data, and reasoning openly. This includes failed experiments and
+            dead-ends — they're part of the scientific process.
+          </p>
+        </div>
+      </div>
+
+      <div class="philosophy-item">
+        <div class="philosophy-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-large">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zM12 2.25V4.5m5.834.166l-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243l-1.59-1.59" />
+          </svg>
+        </div>
+        <div class="philosophy-text">
+          <h3 class="philosophy-title">Iterative Discovery</h3>
+          <p class="philosophy-description">
+            Research is rarely linear. I document my journey as it unfolds, showing how ideas evolve
+            and understanding deepens over time.
+          </p>
+        </div>
+      </div>
+
+      <div class="philosophy-item">
+        <div class="philosophy-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-large">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+          </svg>
+        </div>
+        <div class="philosophy-text">
+          <h3 class="philosophy-title">Collaborative Learning</h3>
+          <p class="philosophy-description">
+            No one works in isolation. I welcome feedback, questions, and contributions from anyone
+            interested in the work.
+          </p>
+        </div>
+      </div>
+
+      <div class="philosophy-item">
+        <div class="philosophy-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-large">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+        </div>
+        <div class="philosophy-text">
+          <h3 class="philosophy-title">Responsible Science</h3>
+          <p class="philosophy-description">
+            Some research involves risks or sensitive topics. I use safety gating to ensure readers
+            understand context and potential implications before accessing certain content.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- How This Works -->
+  <div class="content-section">
+    <h2 class="section-title">How This Workspace Works</h2>
+    <div class="how-it-works">
+      <p class="how-text">
+        This workspace is built on <strong>Git-first principles</strong> — every project, update, and piece
+        of content is version controlled and backed by my GitHub repository. This means:
+      </p>
+      <ul class="how-list">
+        <li>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span><strong>Full history</strong> of every change I make is preserved</span>
+        </li>
+        <li>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span><strong>Anyone can audit</strong> the evolution of my thinking and methods</span>
+        </li>
+        <li>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span><strong>Other researchers</strong> can fork, adapt, or build upon my work</span>
+        </li>
+        <li>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span><strong>My data is portable</strong> — I own it completely, not locked in a platform</span>
+        </li>
+      </ul>
+      <p class="how-text">
+        If you're a researcher interested in deploying your own workspace like this, check out the
+        <a href="/start" class="inline-link">Get Your Own Workspace</a> guide.
+      </p>
+    </div>
+  </div>
+
+  <!-- Contact Section -->
+  <div class="content-section contact-section">
+    <h2 class="section-title">Get in Touch</h2>
+    <p class="contact-text">
+      I'm always interested in connecting with other researchers, discussing ideas, or exploring collaborations.
+      Feel free to reach out!
+    </p>
+    <div class="contact-links">
+      <a href="/projects" class="contact-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+        </svg>
+        View My Projects
+      </a>
+      <a href="/safety" class="contact-btn-secondary">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+        </svg>
+        Read My Research Rules
+      </a>
+    </div>
+  </div>
+</WorkspaceLayout>
+
+<style>
+  /* Page Header */
+  .page-header {
+    margin-bottom: 3rem;
+    text-align: center;
+  }
+
+  .page-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+  }
+
+  .page-description {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  /* Content Section */
+  .content-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .section-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2rem;
+  }
+
+  /* Bio Container */
+  .bio-container {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  .photo-section {
+    position: sticky;
+    top: 2rem;
+  }
+
+  .researcher-photo-large {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 4px solid var(--border-color);
+  }
+
+  .photo-placeholder-large {
+    color: var(--text-tertiary);
+  }
+
+  .icon-xlarge {
+    width: 6rem;
+    height: 6rem;
+  }
+
+  .bio-content {
+    flex: 1;
+  }
+
+  .bio-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+  }
+
+  .bio-text {
+    font-size: 1.125rem;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .bio-text:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Interests Grid */
+  .interests-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .interest-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 2rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    transition: all 0.2s;
+  }
+
+  .interest-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-4px);
+  }
+
+  .interest-icon {
+    width: 3rem;
+    height: 3rem;
+    background: var(--primary-bg);
+    color: var(--primary);
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .interest-icon svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .interest-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .interest-description {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  /* Philosophy Content */
+  .philosophy-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .philosophy-item {
+    display: flex;
+    gap: 1.5rem;
+  }
+
+  .philosophy-icon {
+    flex-shrink: 0;
+    width: 3.5rem;
+    height: 3.5rem;
+    background: var(--primary-bg);
+    color: var(--primary);
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .philosophy-text {
+    flex: 1;
+  }
+
+  .philosophy-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .philosophy-description {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  /* How It Works */
+  .how-it-works {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .how-text {
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .how-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-left: 0;
+    list-style: none;
+  }
+
+  .how-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    font-size: 1rem;
+    color: var(--text-secondary);
+  }
+
+  .how-list li svg {
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+    color: var(--primary);
+  }
+
+  .inline-link {
+    color: var(--primary);
+    text-decoration: underline;
+    transition: color 0.2s;
+  }
+
+  .inline-link:hover {
+    color: var(--primary-dark);
+  }
+
+  /* Contact Section */
+  .contact-section {
+    background: linear-gradient(135deg, var(--primary-bg) 0%, var(--bg-secondary) 100%);
+    border: 2px solid var(--primary);
+  }
+
+  .contact-text {
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+  }
+
+  .contact-links {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .contact-btn,
+  .contact-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    font-size: 1rem;
+  }
+
+  .contact-btn {
+    background: var(--primary);
+    color: white;
+    border: 2px solid var(--primary);
+  }
+
+  .contact-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+  }
+
+  .contact-btn-secondary {
+    background: transparent;
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
+  }
+
+  .contact-btn-secondary:hover {
+    border-color: var(--primary);
+    background: var(--bg-primary);
+  }
+
+  /* Icon Sizing */
+  .icon-small {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .icon-medium {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .icon-large {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
     .page-title {
-      font-size: 2.5rem;
-      font-weight: 800;
-      margin-bottom: 2rem;
+      font-size: 2rem;
     }
 
-    .content-placeholder {
-      background: var(--bg-secondary);
-      border: 2px dashed var(--border-color);
-      border-radius: 1rem;
-      padding: 3rem;
+    .bio-container {
+      grid-template-columns: 1fr;
+      gap: 2rem;
       text-align: center;
     }
 
-    .placeholder-text {
-      font-size: 1.25rem;
-      color: var(--text-muted);
-      margin-bottom: 1.5rem;
+    .photo-section {
+      position: static;
+      display: flex;
+      justify-content: center;
     }
 
-    .todo-list {
-      list-style: none;
-      padding: 0;
+    .researcher-photo-large {
+      width: 150px;
+      height: 150px;
+    }
+
+    .icon-xlarge {
+      width: 4.5rem;
+      height: 4.5rem;
+    }
+
+    .bio-title {
+      font-size: 1.5rem;
+    }
+
+    .bio-text {
+      font-size: 1rem;
       text-align: left;
-      max-width: 400px;
-      margin: 0 auto;
     }
 
-    .todo-list li {
-      padding: 0.5rem 0;
-      color: var(--text-secondary);
-      border-bottom: 1px solid var(--border-color);
+    .interests-grid {
+      grid-template-columns: 1fr;
     }
 
-    .todo-list li:before {
-      content: "□ ";
-      color: var(--primary);
-      font-weight: bold;
-      margin-right: 0.5rem;
+    .philosophy-item {
+      flex-direction: column;
+      gap: 1rem;
     }
-  </style>
-</WorkspaceLayout>
+
+    .contact-links {
+      flex-direction: column;
+    }
+
+    .contact-btn,
+    .contact-btn-secondary {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>

@@ -1,0 +1,177 @@
+# Dependabot Configuration
+#
+# Automates dependency updates and security patches
+# Docs: https://docs.github.com/en/code-security/dependabot
+#
+# What this does:
+# - Checks npm dependencies weekly (every Monday at 9am)
+# - Groups related dependencies into single PRs (reduces PR noise)
+# - Creates immediate PRs for security vulnerabilities
+# - Monitors GitHub Actions versions monthly
+# - Auto-labels PRs for easy filtering
+#
+# Benefits:
+# - Keeps dependencies up-to-date with minimal manual effort
+# - Catches security vulnerabilities early (Dependabot Security Updates)
+# - Reduces merge conflicts from batching small updates
+# - Clear changelog via conventional commit messages
+#
+# PR Management:
+# - Max 10 open PRs at once (prevents overwhelming the team)
+# - PRs labeled with "dependencies" and ecosystem type
+# - Grouped updates make reviewing easier (e.g., all TypeScript types together)
+# - Can auto-merge patch updates if CI passes (optional, configure in repo settings)
+
+version: 2
+
+updates:
+  # ============================================================================
+  # NPM Dependencies
+  # ============================================================================
+  - package-ecosystem: "npm"
+    directory: "/"
+
+    # Schedule: Weekly on Monday mornings
+    # Rationale: Start of week allows time to review and merge before weekend
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+
+    # Limit open PRs to prevent overwhelming maintainers
+    open-pull-requests-limit: 10
+
+    # Grouped updates - reduces PR noise by combining related dependencies
+    groups:
+      # Type definitions (safe to batch - rarely cause issues)
+      type-definitions:
+        patterns:
+          - "@types/*"
+        update-types:
+          - "minor"
+          - "patch"
+
+      # Linting and formatting tools (safe to update together)
+      code-quality:
+        patterns:
+          - "eslint*"
+          - "prettier*"
+          - "@typescript-eslint/*"
+        update-types:
+          - "minor"
+          - "patch"
+
+      # Testing frameworks (update together for compatibility)
+      testing:
+        patterns:
+          - "vitest*"
+          - "@vitest/*"
+          - "playwright*"
+          - "@playwright/*"
+          - "@testing-library/*"
+        update-types:
+          - "minor"
+          - "patch"
+
+      # Astro ecosystem (framework + integrations)
+      astro:
+        patterns:
+          - "astro"
+          - "@astrojs/*"
+        update-types:
+          - "minor"
+          - "patch"
+
+      # React ecosystem
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+        update-types:
+          - "minor"
+          - "patch"
+
+      # Supabase ecosystem
+      supabase:
+        patterns:
+          - "@supabase/*"
+        update-types:
+          - "minor"
+          - "patch"
+
+    # PR labels for filtering and automation
+    labels:
+      - "dependencies"
+      - "npm"
+      - "automated"
+
+    # Commit message configuration
+    # Uses conventional commits for clear changelogs
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+
+    # Reviewers (optional - uncomment and add GitHub usernames)
+    # reviewers:
+    #   - "your-github-username"
+
+    # Assignees (optional - uncomment and add GitHub usernames)
+    # assignees:
+    #   - "your-github-username"
+
+  # ============================================================================
+  # GitHub Actions
+  # ============================================================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+
+    # Schedule: Monthly check (Actions update less frequently)
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+
+    # Labels for Actions updates
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "automated"
+
+    # Commit message format
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+# ============================================================================
+# Security Updates
+# ============================================================================
+# Dependabot will ALWAYS create PRs immediately for security vulnerabilities,
+# regardless of the schedule above. These are labeled with "security".
+#
+# GitHub will also send email/notification alerts for new vulnerabilities.
+#
+# Review and merge security PRs as soon as possible!
+
+# ============================================================================
+# Configuration Tips
+# ============================================================================
+#
+# Auto-merge patch updates (optional):
+# 1. Go to repo Settings → Code security and analysis
+# 2. Enable "Allow auto-merge"
+# 3. Create branch protection rule requiring CI to pass
+# 4. Configure Dependabot to auto-approve patch PRs
+#
+# Ignore specific dependencies:
+# Add to any package-ecosystem block:
+#   ignore:
+#     - dependency-name: "package-name"
+#       versions: ["1.x", "2.x"]
+#
+# Separate major version updates:
+# Major versions often have breaking changes and should be reviewed carefully.
+# Dependabot automatically separates major version PRs from grouped updates.

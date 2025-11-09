@@ -174,3 +174,164 @@ export function SkeletonTable({
     </div>
   );
 }
+
+/**
+ * SkeletonTaskList - For dashboard task list
+ */
+export function SkeletonTaskList({
+  items = 5,
+  className,
+}: {
+  items?: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn('task-list', className)} role="status" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading tasks...</span>
+      <div className="task-list-header">
+        <Skeleton variant="text" height={24} width={120} />
+        <Skeleton variant="rectangular" height={32} width={100} className="rounded-md" />
+      </div>
+      <div className="task-items">
+        {Array.from({ length: items }).map((_, i) => (
+          <div key={i} className="task-item">
+            <Skeleton variant="rectangular" width={20} height={20} className="rounded" />
+            <div className="task-content flex-1">
+              <Skeleton variant="text" height={18} width="70%" className="mb-2" />
+              <div className="flex gap-2">
+                <Skeleton variant="rectangular" height={20} width={60} className="rounded-full" />
+                <Skeleton variant="rectangular" height={20} width={80} className="rounded-full" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * SkeletonNotificationList - For notification sidebar
+ */
+export function SkeletonNotificationList({
+  items = 5,
+  className,
+}: {
+  items?: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn('notification-list', className)} role="status" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading notifications...</span>
+      <div className="flex items-center justify-between mb-4">
+        <Skeleton variant="text" height={20} width={120} />
+        <Skeleton variant="text" height={16} width={80} />
+      </div>
+      <div className="space-y-3">
+        {Array.from({ length: items }).map((_, i) => (
+          <div key={i} className="flex items-start gap-3 p-3">
+            <Skeleton variant="circular" width={32} height={32} />
+            <div className="flex-1 space-y-2">
+              <Skeleton variant="text" height={16} width="90%" />
+              <Skeleton variant="text" height={14} width="60%" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * SkeletonActivityLog - For recent activities
+ */
+export function SkeletonActivityLog({
+  items = 4,
+  className,
+}: {
+  items?: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn('activity-log', className)} role="status" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading recent activities...</span>
+      <div className="space-y-4">
+        {Array.from({ length: items }).map((_, i) => (
+          <div key={i} className="flex gap-4">
+            <div className="flex-shrink-0">
+              <Skeleton variant="circular" width={40} height={40} />
+            </div>
+            <div className="flex-1 space-y-2">
+              <Skeleton variant="text" height={18} width="80%" />
+              <Skeleton variant="text" height={14} width="100%" />
+              <Skeleton variant="text" height={14} width="70%" />
+              <Skeleton variant="text" height={12} width="40%" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * SkeletonProjectCard - For project cards on projects page
+ */
+export function SkeletonProjectCard({ className }: { className?: string }) {
+  return (
+    <div className={cn('project-card', className)} role="status" aria-busy="true">
+      <span className="sr-only">Loading project...</span>
+      {/* Header */}
+      <div className="project-header">
+        <Skeleton variant="rectangular" height={24} width={100} className="rounded-md" />
+        <Skeleton variant="rectangular" height={24} width={60} className="rounded-md" />
+      </div>
+
+      {/* Title */}
+      <Skeleton variant="text" height={28} width="80%" className="mb-3" />
+
+      {/* Description */}
+      <div className="space-y-2 mb-4 flex-1">
+        <Skeleton variant="text" height={16} width="100%" />
+        <Skeleton variant="text" height={16} width="100%" />
+        <Skeleton variant="text" height={16} width="70%" />
+      </div>
+
+      {/* Tags */}
+      <div className="flex gap-2 mb-4">
+        <Skeleton variant="rectangular" height={24} width={60} className="rounded" />
+        <Skeleton variant="rectangular" height={24} width={80} className="rounded" />
+        <Skeleton variant="rectangular" height={24} width={50} className="rounded" />
+      </div>
+
+      {/* Meta */}
+      <div className="flex gap-4 mb-4 pt-4" style={{ borderTop: '1px solid var(--border-color)' }}>
+        <Skeleton variant="text" height={14} width={100} />
+        <Skeleton variant="text" height={14} width={80} />
+      </div>
+
+      {/* Link */}
+      <Skeleton variant="text" height={16} width={120} />
+    </div>
+  );
+}
+
+/**
+ * SkeletonProjectGrid - For projects page grid
+ */
+export function SkeletonProjectGrid({
+  items = 6,
+  className,
+}: {
+  items?: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn('projects-grid', className)} role="status" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading projects...</span>
+      {Array.from({ length: items }).map((_, i) => (
+        <SkeletonProjectCard key={i} />
+      ))}
+    </div>
+  );
+}

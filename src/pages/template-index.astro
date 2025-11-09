@@ -1,0 +1,450 @@
+---
+import WorkspaceLayout from '../components/layouts/WorkspaceLayout.astro';
+import CategorySection from '../components/workspace/CategorySection.astro';
+import { createReader } from '@keystatic/core/reader';
+import keystaticConfig from '../../keystatic.config';
+
+// Initialize Keystatic reader to fetch content from Git
+const reader = createReader(process.cwd(), keystaticConfig);
+
+// Fetch all projects from Git (source of truth)
+const projectSlugs = await reader.collections.projects.list();
+
+// Fetch project details for public/gated projects only
+const projectsPromises = projectSlugs.map(async (slug) => {
+  const project = await reader.collections.projects.read(slug);
+  if (!project) return null;
+
+  // Only show public and gated projects (not private)
+  if (project.visibility === 'private') return null;
+
+  return {
+    slug,
+    title: project.title,
+    description: project.description,
+    category: project.category || 'other',
+    visibility: project.visibility,
+    gated: project.gated || false,
+    status: project.status || 'draft',
+    lastUpdated: project.lastUpdated,
+    tags: project.tags || [],
+  };
+});
+
+const allProjects = (await Promise.all(projectsPromises)).filter(p => p !== null);
+
+// Featured projects (using 'featured' tag)
+const featuredProjects = allProjects
+  .filter(p => p.tags.includes('featured'))
+  .slice(0, 8);
+
+// If no featured projects, use recent active projects
+const displayFeaturedProjects = featuredProjects.length > 0
+  ? featuredProjects
+  : allProjects
+      .filter(p => p.status === 'active')
+      .sort((a, b) => new Date(b.lastUpdated || 0).getTime() - new Date(a.lastUpdated || 0).getTime())
+      .slice(0, 8);
+
+// Group projects by category
+const categories = ['hardware', 'biology', 'plasma', 'data-science'] as const;
+const projectsByCategory = categories.reduce((acc, category) => {
+  const categoryProjects = allProjects
+    .filter(p => p.category === category)
+    .sort((a, b) => new Date(b.lastUpdated || 0).getTime() - new Date(a.lastUpdated || 0).getTime())
+    .slice(0, 6); // Top 6 per category
+
+  // Only include categories with 2+ projects
+  if (categoryProjects.length >= 2) {
+    acc[category] = categoryProjects;
+  }
+  return acc;
+}, {} as Record<string, typeof allProjects>);
+
+// Calculate dynamic stats
+const stats = {
+  totalProjects: allProjects.length,
+  activeProjects: allProjects.filter(p => p.status === 'active').length,
+  categoryCount: Object.keys(projectsByCategory).length,
+};
+
+// Category display names and icons
+const categoryInfo: Record<string, { name: string; icon: string }> = {
+  hardware: {
+    name: 'Hardware Projects',
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z" /></svg>',
+  },
+  biology: {
+    name: 'Biology Research',
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>',
+  },
+  plasma: {
+    name: 'Plasma Research',
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>',
+  },
+  'data-science': {
+    name: 'Data Science',
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>',
+  },
+};
+---
+
+<WorkspaceLayout title="Workspace - Open Science Research Platform" description="A Git-first workspace for transparent, reproducible, and collaborative research.">
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-content">
+      <h1 class="hero-title">
+        Open Science Research Platform
+      </h1>
+      <p class="hero-description">
+        A Git-first workspace for transparent, reproducible, and collaborative research.
+        Every project is version-controlled, publicly accessible, and built on open principles.
+      </p>
+
+      <div class="hero-actions">
+        <a href="/projects" class="btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+          </svg>
+          Explore Projects
+        </a>
+        <a href="/start" class="btn-secondary">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+          </svg>
+          Get Your Own Workspace
+        </a>
+      </div>
+    </div>
+
+    <!-- Dynamic stats -->
+    <div class="hero-stats">
+      <div class="stat-card">
+        <div class="stat-number">{stats.totalProjects}</div>
+        <div class="stat-label">Public Projects</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">{stats.activeProjects}</div>
+        <div class="stat-label">Active Research</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">{stats.categoryCount}</div>
+        <div class="stat-label">Research Areas</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Featured Projects Row -->
+  {displayFeaturedProjects.length > 0 && (
+    <CategorySection
+      title="Featured Projects"
+      projects={displayFeaturedProjects}
+      showViewAll={true}
+    />
+  )}
+
+  <!-- Category-based Directory Sections -->
+  {Object.entries(projectsByCategory).map(([category, projects]) => {
+    const info = categoryInfo[category as keyof typeof categoryInfo];
+    if (!info) return null;
+
+    return (
+      <CategorySection
+        title={info.name}
+        category={category}
+        projects={projects}
+        icon={info.icon}
+        showViewAll={true}
+      />
+    );
+  })}
+
+  <!-- Call to Action -->
+  <section class="cta-section">
+    <div class="cta-content">
+      <h2 class="cta-title">Want to build your own research workspace?</h2>
+      <p class="cta-description">
+        Fork this project on GitHub and deploy your own self-hosted workspace in minutes.
+        Full control, Git-backed content, and open science built-in.
+      </p>
+      <div class="cta-actions">
+        <a href="/start" class="btn-cta-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+          </svg>
+          Deploy Your Workspace
+        </a>
+        <a href="/about" class="btn-cta-secondary">
+          Learn More About This Project
+        </a>
+      </div>
+    </div>
+  </section>
+</WorkspaceLayout>
+
+<style>
+  /* Hero Section */
+  .hero {
+    padding: 3rem 0 4rem;
+    text-align: center;
+  }
+
+  .hero-content {
+    max-width: 800px;
+    margin: 0 auto 3rem;
+  }
+
+  .hero-title {
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-description {
+    font-size: 1.25rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    font-size: 1rem;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .btn-secondary {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--primary);
+    background: var(--bg-hover);
+  }
+
+  /* Hero Stats */
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .stat-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1.75rem;
+    text-align: center;
+    transition: all 0.2s;
+  }
+
+  .stat-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+  }
+
+  .stat-number {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+    line-height: 1;
+  }
+
+  .stat-label {
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.9375rem;
+  }
+
+  /* CTA Section */
+  .cta-section {
+    margin-top: 6rem;
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: 1.5rem;
+    text-align: center;
+    color: white;
+  }
+
+  .cta-content {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .cta-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+  }
+
+  .cta-description {
+    font-size: 1.125rem;
+    opacity: 0.95;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+  }
+
+  .cta-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn-cta-primary,
+  .btn-cta-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    font-size: 1rem;
+  }
+
+  .btn-cta-primary {
+    background: white;
+    color: var(--primary);
+  }
+
+  .btn-cta-primary:hover {
+    background: var(--bg-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .btn-cta-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .btn-cta-secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: white;
+  }
+
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
+    .hero {
+      padding: 2rem 0 3rem;
+    }
+
+    .hero-title {
+      font-size: 2rem;
+    }
+
+    .hero-description {
+      font-size: 1rem;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      padding: 0.75rem 1.5rem;
+      font-size: 0.9375rem;
+    }
+
+    .hero-stats {
+      gap: 1rem;
+    }
+
+    .stat-card {
+      padding: 1.5rem;
+    }
+
+    .stat-number {
+      font-size: 2rem;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+    }
+
+    .cta-section {
+      margin-top: 4rem;
+      padding: 3rem 1.5rem;
+      border-radius: 1rem;
+    }
+
+    .cta-title {
+      font-size: 1.75rem;
+    }
+
+    .cta-description {
+      font-size: 1rem;
+    }
+
+    .btn-cta-primary,
+    .btn-cta-secondary {
+      padding: 0.75rem 1.5rem;
+      font-size: 0.9375rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .hero-title {
+      font-size: 1.75rem;
+    }
+
+    .hero-actions {
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .cta-actions {
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .btn-cta-primary,
+    .btn-cta-secondary {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>

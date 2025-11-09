@@ -1,11 +1,11 @@
 ---
-import DashboardLayout from '../../components/layouts/DashboardLayout.astro';
-import WelcomeHeader from '../../components/dashboard/WelcomeHeader';
-import StatsBar from '../../components/dashboard/StatsBar';
-import TaskList from '../../components/dashboard/TaskList';
-import NotificationList from '../../components/dashboard/NotificationList';
-import QuickActions from '../../components/dashboard/QuickActions';
-import GettingStarted from '../../components/dashboard/GettingStarted';
+import WorkbenchLayout from '../../components/layouts/WorkbenchLayout.astro';
+import WelcomeHeader from '../../components/workbench/WelcomeHeader';
+import StatsBar from '../../components/workbench/StatsBar';
+import TaskList from '../../components/workbench/TaskList';
+import NotificationList from '../../components/workbench/NotificationList';
+import QuickActions from '../../components/workbench/QuickActions';
+import GettingStarted from '../../components/workbench/GettingStarted';
 import ActivityLog from '../../components/ui/ActivityLog';
 import PublishWidget from '../../components/ui/PublishWidget';
 import { createSupabaseServer } from '../../lib/supabaseServer';
@@ -65,9 +65,13 @@ if (userRepo?.github_token) {
     subprojectSlugs = await listSubProjects(userRepo.github_token, userRepo.repo_owner, userRepo.repo_name);
   }
 
-  // Always fetch updates and docs count from Git (no cache for these yet)
-  updateSlugs = await listUpdates(userRepo.github_token, userRepo.repo_owner, userRepo.repo_name);
-  docSlugs = await listDocs(userRepo.github_token, userRepo.repo_owner, userRepo.repo_name);
+  // OPTIMIZATION: Only fetch updates/docs if we have projects
+  // No projects = no updates/docs to show, saves 2 API calls
+  const hasProjects = (projectCache && projectCache.length > 0) || projectSlugs.length > 0;
+  if (hasProjects) {
+    updateSlugs = await listUpdates(userRepo.github_token, userRepo.repo_owner, userRepo.repo_name);
+    docSlugs = await listDocs(userRepo.github_token, userRepo.repo_owner, userRepo.repo_name);
+  }
 }
 
 // Calculate stats from Git-first data
@@ -84,8 +88,8 @@ let recentActivities: any[] = [];
 if (userRepo?.github_token && updateSlugs.length > 0) {
   const { fetchUpdateFromGit } = await import('../../lib/github');
 
-  // Fetch the most recent updates (up to 5)
-  const recentUpdateSlugs = updateSlugs.slice(0, 5);
+  // Fetch the most recent updates (up to 3 for performance)
+  const recentUpdateSlugs = updateSlugs.slice(0, 3);
   const updatePromises = recentUpdateSlugs.map(slug =>
     fetchUpdateFromGit(userRepo.github_token, userRepo.repo_owner, userRepo.repo_name, slug)
   );
@@ -118,7 +122,7 @@ if (userRepo?.github_token) {
 }
 ---
 
-<DashboardLayout title="Workbench - Workspace">
+<WorkbenchLayout title="Workbench - Workspace">
   <!-- Welcome Header -->
   <WelcomeHeader client:load userName={userName} />
 
@@ -196,4 +200,4 @@ if (userRepo?.github_token) {
       <GettingStarted client:load />
     </div>
   </div>
-</DashboardLayout>
+</WorkbenchLayout>

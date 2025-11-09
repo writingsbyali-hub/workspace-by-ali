@@ -1,0 +1,177 @@
+---
+import ProjectRow from './ProjectRow.astro';
+
+interface Project {
+  slug: string;
+  title: string;
+  description?: string;
+  category?: string;
+  gated?: boolean;
+  status?: string;
+  lastUpdated?: string;
+  tags?: string[];
+}
+
+interface Props {
+  title: string;
+  category?: string;
+  projects: Project[];
+  icon?: string;
+  showViewAll?: boolean;
+}
+
+const {
+  title,
+  category,
+  projects,
+  icon,
+  showViewAll = true,
+} = Astro.props;
+
+// Don't render if no projects
+if (!projects || projects.length === 0) {
+  return null;
+}
+
+// Generate view all link
+const viewAllLink = category ? `/projects?category=${category}` : '/projects';
+---
+
+<section class="category-section">
+  <div class="section-header">
+    <div class="header-left">
+      {icon && (
+        <span class="section-icon" set:html={icon} />
+      )}
+      <h2 class="section-title">{title}</h2>
+      <span class="project-count">{projects.length}</span>
+    </div>
+
+    {showViewAll && (
+      <a href={viewAllLink} class="view-all-link">
+        View All
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+        </svg>
+      </a>
+    )}
+  </div>
+
+  <ProjectRow projects={projects} />
+</section>
+
+<style>
+  .category-section {
+    margin-bottom: 3.5rem;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+  }
+
+  .section-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+  }
+
+  .section-icon :global(svg) {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .project-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-hover);
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    min-width: 1.75rem;
+  }
+
+  .view-all-link {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--primary);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+  }
+
+  .view-all-link:hover {
+    background: var(--primary-light);
+    transform: translateX(2px);
+  }
+
+  .view-all-link:hover svg {
+    transform: translateX(2px);
+  }
+
+  .view-all-link svg {
+    transition: transform 0.2s ease;
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .category-section {
+      margin-bottom: 2.5rem;
+    }
+
+    .section-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+    }
+
+    .view-all-link {
+      align-self: flex-end;
+      font-size: 0.875rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .header-left {
+      flex-wrap: wrap;
+    }
+
+    .section-title {
+      font-size: 1.125rem;
+    }
+
+    .project-count {
+      font-size: 0.8125rem;
+      padding: 0.1875rem 0.5rem;
+    }
+  }
+</style>

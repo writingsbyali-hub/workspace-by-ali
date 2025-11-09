@@ -1,5 +1,5 @@
 ---
-import DashboardLayout from '../../components/layouts/DashboardLayout.astro';
+import WorkbenchLayout from '../../components/layouts/WorkbenchLayout.astro';
 import { createSupabaseServer } from '../../lib/supabaseServer';
 
 // Get user
@@ -14,7 +14,7 @@ const userEmail = user.email || '';
 const userName = user.user_metadata?.name || userEmail.split('@')[0];
 ---
 
-<DashboardLayout title="Profile - Workspace">
+<WorkbenchLayout title="Profile - Workspace">
   <!-- Profile Header -->
   <div class="content-section mb-6">
     <div class="flex items-start gap-6">
@@ -90,4 +90,4 @@ const userName = user.user_metadata?.name || userEmail.split('@')[0];
       </div>
     </div>
   </div>
-</DashboardLayout>
+</WorkbenchLayout>

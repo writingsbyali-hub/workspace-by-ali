@@ -1,0 +1,243 @@
+---
+import ProjectCardCompact from './ProjectCardCompact.astro';
+
+interface Project {
+  slug: string;
+  title: string;
+  description?: string;
+  category?: string;
+  gated?: boolean;
+  status?: string;
+  lastUpdated?: string;
+  tags?: string[];
+}
+
+interface Props {
+  projects: Project[];
+  showNavigationHints?: boolean;
+}
+
+const { projects, showNavigationHints = true } = Astro.props;
+
+// Don't render if no projects
+if (!projects || projects.length === 0) {
+  return null;
+}
+---
+
+<div class="project-row-container">
+  {showNavigationHints && projects.length > 3 && (
+    <div class="scroll-hint scroll-hint-left" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+      </svg>
+    </div>
+  )}
+
+  <div class="project-row">
+    <div class="row-scroll">
+      {projects.map((project) => (
+        <ProjectCardCompact {...project} />
+      ))}
+    </div>
+  </div>
+
+  {showNavigationHints && projects.length > 3 && (
+    <div class="scroll-hint scroll-hint-right" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+      </svg>
+    </div>
+  )}
+</div>
+
+<style>
+  .project-row-container {
+    position: relative;
+    width: 100%;
+  }
+
+  /* Horizontal scrollable container */
+  .project-row {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+    -webkit-overflow-scrolling: touch; /* Smooth iOS scroll */
+    scroll-behavior: smooth;
+  }
+
+  .row-scroll {
+    display: flex;
+    gap: 1.5rem;
+    padding-bottom: 1rem; /* Space for scrollbar */
+    min-width: min-content;
+  }
+
+  /* Custom scrollbar styling */
+  .project-row::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .project-row::-webkit-scrollbar-track {
+    background: var(--bg-hover);
+    border-radius: 3px;
+  }
+
+  .project-row::-webkit-scrollbar-thumb {
+    background: var(--border-emphasis);
+    border-radius: 3px;
+  }
+
+  .project-row::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+  }
+
+  /* Scroll navigation hints */
+  .scroll-hint {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2.5rem;
+    height: 2.5rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .scroll-hint-left {
+    left: -1.25rem;
+  }
+
+  .scroll-hint-right {
+    right: -1.25rem;
+  }
+
+  /* Show hints on hover (desktop only) */
+  @media (min-width: 769px) {
+    .project-row-container:hover .scroll-hint {
+      opacity: 0.8;
+    }
+
+    .scroll-hint:hover {
+      opacity: 1;
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+  }
+
+  /* Hide scroll hints on mobile */
+  @media (max-width: 768px) {
+    .scroll-hint {
+      display: none;
+    }
+
+    .row-scroll {
+      gap: 1rem;
+    }
+  }
+
+  /* Scroll snap for better UX */
+  .project-row {
+    scroll-snap-type: x proximity;
+  }
+
+  .project-row :global(.project-card-compact) {
+    scroll-snap-align: start;
+  }
+
+  /* Fade out effect at edges */
+  .project-row-container::before,
+  .project-row-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 1rem; /* Account for scrollbar */
+    width: 3rem;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .project-row-container::before {
+    left: 0;
+    background: linear-gradient(to right, var(--bg-primary), transparent);
+  }
+
+  .project-row-container::after {
+    right: 0;
+    background: linear-gradient(to left, var(--bg-primary), transparent);
+  }
+
+  /* Show fade on scroll (requires JavaScript, but works without) */
+  @media (min-width: 769px) {
+    .project-row-container:hover::before,
+    .project-row-container:hover::after {
+      opacity: 1;
+    }
+  }
+</style>
+
+<script>
+  // Add scroll event listeners to show/hide navigation hints
+  document.querySelectorAll('.project-row').forEach((row) => {
+    const container = row.closest('.project-row-container');
+    if (!container) return;
+
+    const leftHint = container.querySelector('.scroll-hint-left');
+    const rightHint = container.querySelector('.scroll-hint-right');
+
+    const updateHints = () => {
+      if (!leftHint || !rightHint) return;
+
+      const scrollLeft = row.scrollLeft;
+      const scrollWidth = row.scrollWidth;
+      const clientWidth = row.clientWidth;
+
+      // Show/hide left hint
+      if (scrollLeft > 20) {
+        leftHint.style.opacity = '0.8';
+      } else {
+        leftHint.style.opacity = '0';
+      }
+
+      // Show/hide right hint
+      if (scrollLeft < scrollWidth - clientWidth - 20) {
+        rightHint.style.opacity = '0.8';
+      } else {
+        rightHint.style.opacity = '0';
+      }
+    };
+
+    row.addEventListener('scroll', updateHints);
+    updateHints(); // Initial check
+
+    // Click handlers for hints (optional smooth scroll)
+    leftHint?.addEventListener('click', () => {
+      row.scrollBy({ left: -300, behavior: 'smooth' });
+    });
+
+    rightHint?.addEventListener('click', () => {
+      row.scrollBy({ left: 300, behavior: 'smooth' });
+    });
+
+    // Make hints clickable
+    [leftHint, rightHint].forEach(hint => {
+      if (hint) {
+        hint.style.pointerEvents = 'auto';
+        hint.style.cursor = 'pointer';
+      }
+    });
+  });
+</script>

@@ -1,13 +1,22 @@
 ---
 import WorkspaceLayout from '../components/layouts/WorkspaceLayout.astro';
-import { createSupabaseServer } from '../lib/supabaseServer';
 import { createReader } from '@keystatic/core/reader';
 import keystaticConfig from '../../keystatic.config';
+import { createSupabaseServer } from '../lib/supabaseServer';
 
 // Initialize Keystatic reader to fetch content from Git
 const reader = createReader(process.cwd(), keystaticConfig);
 
-// Fetch all projects from Git (source of truth)
+// Get workspace settings for researcher info
+const supabase = createSupabaseServer(Astro.cookies);
+const { data: workspaceSettings } = await supabase
+  .from('workspace_settings')
+  .select('workspace_name')
+  .single();
+
+const researcherName = workspaceSettings?.workspace_name || 'Researcher';
+
+// Fetch all projects from Git
 const projectSlugs = await reader.collections.projects.list();
 
 // Fetch project details for public/gated projects only
@@ -22,95 +31,101 @@ const projectsPromises = projectSlugs.map(async (slug) => {
     slug,
     title: project.title,
     description: project.description,
-    category: project.stream || project.category || 'Research',
+    category: project.category || 'other',
     visibility: project.visibility,
     gated: project.gated || false,
+    status: project.status || 'draft',
+    lastUpdated: project.lastUpdated,
+    tags: project.tags || [],
   };
 });
 
 const allProjects = (await Promise.all(projectsPromises)).filter(p => p !== null);
 
-// Fetch latest updates from Git
-const updateSlugs = await reader.collections.updates.list();
-const latestUpdates = await Promise.all(
-  updateSlugs.slice(0, 3).map(async (slug) => {
-    const update = await reader.collections.updates.read(slug);
-    return {
-      slug,
-      ...update,
-    };
-  })
-);
+// Featured projects (using 'featured' tag)
+const featuredProjects = allProjects
+  .filter(p => p.tags.includes('featured'))
+  .slice(0, 4);
 
-// Get supabase for user info
-const supabase = createSupabaseServer(Astro.cookies);
-const { data: { user } } = await supabase.auth.getUser();
+// If no featured projects, use most recent active projects
+const displayFeaturedProjects = featuredProjects.length > 0
+  ? featuredProjects
+  : allProjects
+      .filter(p => p.status === 'active')
+      .sort((a, b) => new Date(b.lastUpdated || 0).getTime() - new Date(a.lastUpdated || 0).getTime())
+      .slice(0, 4);
 
-// Featured projects (first 3 public projects)
-const featuredProjects = allProjects.slice(0, 3);
+// Recent activity (most recently updated projects)
+const recentActivity = allProjects
+  .sort((a, b) => new Date(b.lastUpdated || 0).getTime() - new Date(a.lastUpdated || 0).getTime())
+  .slice(0, 5);
+
+// Format date helper
+const formatDate = (dateString?: string) => {
+  if (!dateString) return 'Recently';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - date.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
 ---
 
-<WorkspaceLayout title="Workspace - Open Science Research Platform">
-  <!-- Hero Section -->
-  <section class="hero">
-    <div class="hero-content">
-      <h1 class="hero-title">
-        Open Science Research Platform
-      </h1>
-      <p class="hero-description">
-        A Git-first workspace for transparent, reproducible, and collaborative research.
-        Every project is version-controlled, publicly accessible, and built on open principles.
-      </p>
-      <div class="hero-actions">
-        <a href="/projects" class="btn-primary">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
-          </svg>
-          Explore Projects
-        </a>
-        <a href="/start" class="btn-secondary">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-          </svg>
-          Start Your Own
-        </a>
-      </div>
-    </div>
+<WorkspaceLayout
+  title={`${researcherName}'s Workspace`}
+  description="Personal research workspace for transparent, reproducible, and collaborative science."
+>
+  <!-- Hero / Welcome Section -->
+  <section class="welcome-section">
+    <div class="welcome-content">
+      <div class="researcher-intro">
+        <!-- Placeholder for researcher photo - can be added later -->
+        <div class="researcher-photo">
+          <div class="photo-placeholder">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-large">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+          </div>
+        </div>
 
-    <div class="hero-stats">
-      <div class="stat-card">
-        <div class="stat-number">{allProjects.length}</div>
-        <div class="stat-label">Active Projects</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">{updateSlugs.length}</div>
-        <div class="stat-label">Research Updates</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">100%</div>
-        <div class="stat-label">Open Science</div>
+        <div class="researcher-text">
+          <h1 class="researcher-name">Welcome to {researcherName}'s Workspace</h1>
+          <p class="researcher-bio">
+            This is my personal research workspace where I share my work on open science,
+            transparent research practices, and collaborative discovery. All projects are
+            version-controlled, publicly accessible (with some gated content for safety),
+            and built on open principles.
+          </p>
+          <div class="research-focus">
+            <h3 class="focus-label">Current Research Focus:</h3>
+            <ul class="focus-list">
+              <li>Open Science Infrastructure</li>
+              <li>Reproducible Research Methods</li>
+              <li>Git-first Research Workflows</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- Featured Projects -->
-  {featuredProjects.length > 0 && (
-    <section class="section">
-      <div class="section-header">
-        <h2 class="section-title">Featured Projects</h2>
-        <a href="/projects" class="section-link">
-          View all →
-        </a>
-      </div>
-
-      <div class="project-grid">
-        {featuredProjects.map((project) => (
-          <article class="project-card">
-            <div class="project-header">
-              <span class="project-category">{project.category}</span>
+  <!-- Featured Projects Section -->
+  {displayFeaturedProjects.length > 0 && (
+    <section class="featured-section">
+      <h2 class="section-title">Featured Projects</h2>
+      <div class="projects-grid">
+        {displayFeaturedProjects.map((project) => (
+          <a href={`/projects/${project.slug}`} class="project-card">
+            <div class="card-header">
+              <h3 class="project-title">{project.title}</h3>
               {project.gated && (
-                <span class="project-badge gated">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                <span class="gated-badge" title="Gated content - acknowledgment required">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                   </svg>
                   Gated
@@ -118,61 +133,46 @@ const featuredProjects = allProjects.slice(0, 3);
               )}
             </div>
 
-            <h3 class="project-title">
-              <a href={`/projects/${project.slug}`}>{project.title}</a>
-            </h3>
+            {project.description && (
+              <p class="project-description">{project.description}</p>
+            )}
 
-            <p class="project-description">{project.description}</p>
-
-            <div class="project-footer">
-              <a href={`/projects/${project.slug}`} class="project-link">
-                View Project →
-              </a>
+            <div class="project-meta">
+              {project.category && (
+                <span class="category-tag">{project.category}</span>
+              )}
+              <span class="update-date">
+                Updated {formatDate(project.lastUpdated)}
+              </span>
             </div>
-          </article>
+          </a>
         ))}
       </div>
     </section>
   )}
 
-  <!-- Latest Updates -->
-  {latestUpdates.length > 0 && (
-    <section class="section">
-      <div class="section-header">
-        <h2 class="section-title">Latest Updates</h2>
-        <a href="/updates" class="section-link">
-          View all →
-        </a>
-      </div>
-
-      <div class="update-list">
-        {latestUpdates.map((update) => (
-          <article class="update-item">
-            <div class="update-meta">
-              <time class="update-date">
-                {new Date(update.date).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric'
-                })}
-              </time>
-              {update.type && (
-                <span class="update-type">{update.type}</span>
-              )}
+  <!-- Recent Activity Section -->
+  {recentActivity.length > 0 && (
+    <section class="activity-section">
+      <h2 class="section-title">Recent Activity</h2>
+      <div class="activity-list">
+        {recentActivity.map((project) => (
+          <a href={`/projects/${project.slug}`} class="activity-item">
+            <div class="activity-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
             </div>
-
-            <h3 class="update-title">
-              <a href={`/updates/${update.slug}`}>{update.title}</a>
-            </h3>
-
-            {update.summary && (
-              <p class="update-summary">{update.summary}</p>
+            <div class="activity-content">
+              <div class="activity-title">{project.title}</div>
+              <div class="activity-date">{formatDate(project.lastUpdated)}</div>
+            </div>
+            {project.gated && (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-lock">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
             )}
-
-            <a href={`/updates/${update.slug}`} class="update-link">
-              Read more →
-            </a>
-          </article>
+          </a>
         ))}
       </div>
     </section>
@@ -181,17 +181,20 @@ const featuredProjects = allProjects.slice(0, 3);
   <!-- Call to Action -->
   <section class="cta-section">
     <div class="cta-content">
-      <h2 class="cta-title">Want to build your own research workspace?</h2>
+      <h2 class="cta-title">Explore My Research</h2>
       <p class="cta-description">
-        Fork this project on GitHub and deploy your own self-hosted workspace in minutes.
-        Full control, Git-backed content, and open science built-in.
+        Browse all my projects, read about my research philosophy, and learn about
+        the safety protocols I follow for transparent and responsible science.
       </p>
-      <div class="cta-actions">
-        <a href="/start" class="btn-primary">
-          Get Started
+      <div class="cta-buttons">
+        <a href="/projects" class="btn-primary">
+          View All Projects
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-medium">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+          </svg>
         </a>
         <a href="/about" class="btn-secondary">
-          Learn More
+          About Me
         </a>
       </div>
     </div>
@@ -199,43 +202,287 @@ const featuredProjects = allProjects.slice(0, 3);
 </WorkspaceLayout>
 
 <style>
-  /* Hero Section */
-  .hero {
-    padding: 4rem 0;
+  /* Welcome Section */
+  .welcome-section {
+    margin-bottom: 4rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .researcher-intro {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+  }
+
+  .researcher-photo {
+    flex-shrink: 0;
+  }
+
+  .photo-placeholder {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+  }
+
+  .researcher-text {
+    flex: 1;
+  }
+
+  .researcher-name {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 1rem;
+    line-height: 1.2;
+  }
+
+  .researcher-bio {
+    font-size: 1.125rem;
+    line-height: 1.7;
+    color: var(--text-muted);
+    margin: 0 0 1.5rem;
+  }
+
+  .research-focus {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-color);
+  }
+
+  .focus-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.75rem;
+  }
+
+  .focus-list {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: var(--text-muted);
+  }
+
+  .focus-list li {
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+  }
+
+  /* Featured Projects Section */
+  .featured-section {
+    margin-bottom: 4rem;
+  }
+
+  .section-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 1.5rem;
+  }
+
+  .projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .project-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .project-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .project-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .gated-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    white-space: nowrap;
+  }
+
+  .project-description {
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin: 0;
+    flex: 1;
+  }
+
+  .project-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .category-tag {
+    background: var(--bg-hover);
+    color: var(--text-muted);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+
+  .update-date {
+    color: var(--text-tertiary);
+  }
+
+  /* Recent Activity Section */
+  .activity-section {
+    margin-bottom: 4rem;
+  }
+
+  .activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .activity-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .activity-item:hover {
+    border-color: var(--primary);
+    background: var(--bg-hover);
+  }
+
+  .activity-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    background: var(--bg-hover);
+    border-radius: 0.5rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .activity-content {
+    flex: 1;
+  }
+
+  .activity-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+  }
+
+  .activity-date {
+    font-size: 0.875rem;
+    color: var(--text-tertiary);
+  }
+
+  .icon-lock {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+
+  /* Icon Sizing Utilities */
+  .icon-small {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .icon-medium {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .icon-large {
+    width: 4rem;
+    height: 4rem;
+  }
+
+  /* CTA Section */
+  .cta-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 3rem;
     text-align: center;
   }
 
-  .hero-content {
-    max-width: 800px;
-    margin: 0 auto 3rem;
+  .cta-content {
+    max-width: 600px;
+    margin: 0 auto;
   }
 
-  .hero-title {
-    font-size: 3rem;
-    font-weight: 800;
-    line-height: 1.1;
-    margin-bottom: 1.5rem;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .cta-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 1rem;
   }
 
-  .hero-description {
-    font-size: 1.25rem;
-    color: var(--text-muted);
+  .cta-description {
+    font-size: 1.0625rem;
     line-height: 1.6;
-    margin-bottom: 2rem;
+    color: var(--text-muted);
+    margin: 0 0 2rem;
   }
 
-  .hero-actions {
+  .cta-buttons {
     display: flex;
     gap: 1rem;
     justify-content: center;
     flex-wrap: wrap;
   }
 
-  .btn-primary, .btn-secondary {
+  .btn-primary,
+  .btn-secondary {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -254,330 +501,59 @@ const featuredProjects = allProjects.slice(0, 3);
   }
 
   .btn-primary:hover {
-    background: var(--primary-dark);
+    background: var(--primary-hover);
     transform: translateY(-2px);
     box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
   }
 
   .btn-secondary {
-    background: var(--bg-tertiary);
+    background: var(--bg-elevated);
     color: var(--text-primary);
     border: 2px solid var(--border-color);
   }
 
   .btn-secondary:hover {
     border-color: var(--primary);
-    background: var(--bg-secondary);
-  }
-
-  .hero-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 2rem;
-    max-width: 800px;
-    margin: 0 auto;
-  }
-
-  .stat-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 1rem;
-    padding: 2rem;
-    text-align: center;
-  }
-
-  .stat-number {
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: var(--primary);
-    margin-bottom: 0.5rem;
-  }
-
-  .stat-label {
-    color: var(--text-muted);
-    font-weight: 500;
-  }
-
-  /* Section */
-  .section {
-    margin-top: 4rem;
-  }
-
-  .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-  }
-
-  .section-title {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .section-link {
-    color: var(--primary);
-    text-decoration: none;
-    font-weight: 600;
-    transition: color 0.2s;
-  }
-
-  .section-link:hover {
-    color: var(--primary-dark);
-  }
-
-  /* Project Grid */
-  .project-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
-  }
-
-  .project-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    transition: all 0.2s;
-  }
-
-  .project-card:hover {
-    border-color: var(--primary);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-  }
-
-  .project-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-  }
-
-  .project-category {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    background: var(--primary-bg);
-    color: var(--primary);
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-  }
-
-  .project-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.25rem 0.5rem;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    border-radius: 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-muted);
-  }
-
-  .project-badge.gated {
-    color: var(--warning);
-    border-color: var(--warning);
-    background: rgba(245, 158, 11, 0.1);
-  }
-
-  .project-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-  }
-
-  .project-title a {
-    color: var(--text-primary);
-    text-decoration: none;
-    transition: color 0.2s;
-  }
-
-  .project-title a:hover {
-    color: var(--primary);
-  }
-
-  .project-description {
-    color: var(--text-muted);
-    line-height: 1.6;
-    margin-bottom: 1rem;
-  }
-
-  .project-footer {
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .project-link {
-    color: var(--primary);
-    text-decoration: none;
-    font-weight: 600;
-    transition: color 0.2s;
-  }
-
-  .project-link:hover {
-    color: var(--primary-dark);
-  }
-
-  /* Update List */
-  .update-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .update-item {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    transition: all 0.2s;
-  }
-
-  .update-item:hover {
-    border-color: var(--primary);
-    transform: translateX(4px);
-  }
-
-  .update-meta {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    margin-bottom: 0.75rem;
-  }
-
-  .update-date {
-    color: var(--text-muted);
-    font-size: 0.875rem;
-  }
-
-  .update-type {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    background: var(--primary-bg);
-    color: var(--primary);
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-
-  .update-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-  }
-
-  .update-title a {
-    color: var(--text-primary);
-    text-decoration: none;
-    transition: color 0.2s;
-  }
-
-  .update-title a:hover {
-    color: var(--primary);
-  }
-
-  .update-summary {
-    color: var(--text-muted);
-    line-height: 1.6;
-    margin-bottom: 0.75rem;
-  }
-
-  .update-link {
-    color: var(--primary);
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 0.875rem;
-    transition: color 0.2s;
-  }
-
-  .update-link:hover {
-    color: var(--primary-dark);
-  }
-
-  /* CTA Section */
-  .cta-section {
-    margin-top: 6rem;
-    padding: 4rem 2rem;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-    border-radius: 2rem;
-    text-align: center;
-    color: white;
-  }
-
-  .cta-content {
-    max-width: 700px;
-    margin: 0 auto;
-  }
-
-  .cta-title {
-    font-size: 2.5rem;
-    font-weight: 800;
-    margin-bottom: 1rem;
-  }
-
-  .cta-description {
-    font-size: 1.125rem;
-    opacity: 0.9;
-    line-height: 1.6;
-    margin-bottom: 2rem;
-  }
-
-  .cta-actions {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .cta-section .btn-primary {
-    background: white;
-    color: var(--primary);
-  }
-
-  .cta-section .btn-primary:hover {
-    background: var(--bg-primary);
-  }
-
-  .cta-section .btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    border-color: rgba(255, 255, 255, 0.3);
-  }
-
-  .cta-section .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: white;
+    background: var(--bg-hover);
   }
 
   /* Mobile Responsive */
   @media (max-width: 768px) {
-    .hero-title {
-      font-size: 2rem;
+    .researcher-intro {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
     }
 
-    .hero-description {
-      font-size: 1rem;
-    }
-
-    .section-title {
+    .researcher-name {
       font-size: 1.5rem;
     }
 
-    .project-grid {
+    .researcher-bio {
+      font-size: 1rem;
+    }
+
+    .projects-grid {
       grid-template-columns: 1fr;
     }
 
-    .cta-title {
-      font-size: 1.75rem;
+    .cta-section {
+      padding: 2rem 1.5rem;
     }
 
-    .cta-description {
-      font-size: 1rem;
+    .cta-title {
+      font-size: 1.5rem;
+    }
+
+    .cta-buttons {
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      width: 100%;
+      justify-content: center;
     }
   }
 </style>

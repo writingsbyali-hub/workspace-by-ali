@@ -13,8 +13,8 @@
 
 import matter from 'gray-matter';
 import { Octokit } from 'octokit';
-import type { Task } from '../components/dashboard/TaskList';
-import type { Notification } from '../components/dashboard/NotificationList';
+import type { Task } from '../components/workbench/TaskList';
+import type { Notification } from '../components/workbench/NotificationList';
 
 /**
  * Types for parsed content

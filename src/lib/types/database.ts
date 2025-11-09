@@ -397,27 +397,33 @@ export interface Database {
       reader_acknowledgments: {
         Row: {
           id: string
-          reader_id: string
-          subproject_id: string
-          protocol_version: string
+          user_id: string
+          workspace_owner_id: string
+          acknowledgment_type: 'safety' | 'license' | 'terms'
+          acknowledgment_code: string
+          project_slug: string | null
+          subproject_slug: string | null
           acknowledged_at: string
-          ip_address: string | null
         }
         Insert: {
           id?: string
-          reader_id: string
-          subproject_id: string
-          protocol_version: string
+          user_id: string
+          workspace_owner_id: string
+          acknowledgment_type: 'safety' | 'license' | 'terms'
+          acknowledgment_code: string
+          project_slug?: string | null
+          subproject_slug?: string | null
           acknowledged_at?: string
-          ip_address?: string | null
         }
         Update: {
           id?: string
-          reader_id?: string
-          subproject_id?: string
-          protocol_version?: string
+          user_id?: string
+          workspace_owner_id?: string
+          acknowledgment_type?: 'safety' | 'license' | 'terms'
+          acknowledgment_code?: string
+          project_slug?: string | null
+          subproject_slug?: string | null
           acknowledged_at?: string
-          ip_address?: string | null
         }
       }
       reader_suggestions: {

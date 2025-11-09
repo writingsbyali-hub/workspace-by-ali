@@ -1,5 +1,6 @@
 ---
 import WorkspaceLayout from '../components/layouts/WorkspaceLayout.astro';
+import ProjectDirectoryView from '../components/workspace/ProjectDirectoryView.astro';
 import { createReader } from '@keystatic/core/reader';
 import keystaticConfig from '../../keystatic.config';
 import { createSupabaseServer } from '../lib/supabaseServer';
@@ -71,11 +72,11 @@ if (user) {
 }
 ---
 
-<WorkspaceLayout title="Projects - Workspace" description="Explore all research projects and experiments">
+<WorkspaceLayout title="My Projects - Workspace" description="Explore all research projects and experiments">
   <!-- Page Header -->
   <div class="page-header">
     <div class="header-content">
-      <h1 class="page-title">Research Projects</h1>
+      <h1 class="page-title">My Research Projects</h1>
       <p class="page-description">
         Explore active research projects, experiments, and investigations. Each project contains sub-projects, methods, datasets, and ongoing updates.
       </p>
@@ -83,7 +84,7 @@ if (user) {
 
     {isOwner && (
       <a href="/workbench/projects" class="btn-owner">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-btn">
           <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
         </svg>
         Manage Projects
@@ -138,10 +139,40 @@ if (user) {
       <option value="completed">Completed</option>
       <option value="paused">Paused</option>
     </select>
+
+    <!-- View Toggle -->
+    <div class="view-toggle">
+      <button class="view-btn active" data-view="cards" title="Card View">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-view">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+        </svg>
+      </button>
+      <button class="view-btn" data-view="directory" title="Directory View">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-view">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+        </svg>
+      </button>
+    </div>
   </div>
 
-  <!-- Projects Grid -->
-  {allProjects.length > 0 ? (
+  <!-- Results Counter -->
+  {allProjects.length > 0 && (
+    <div class="results-info" role="status" aria-live="polite">
+      <span id="resultsCount">Showing {allProjects.length} {allProjects.length === 1 ? 'project' : 'projects'}</span>
+    </div>
+  )}
+
+  <!-- No Results Found (Hidden by default, shown by JS when filtered) -->
+  <div class="no-results" id="noResults" style="display: none;" role="status" aria-live="polite">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="no-results-icon">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM13.5 10.5h-6" />
+    </svg>
+    <h3>No projects found</h3>
+    <p>Try adjusting your filters or search term</p>
+  </div>
+
+  <!-- Card View (Default) -->
+  {allProjects.length > 0 && (
     <div class="projects-grid" id="projectsGrid">
       {allProjects.map((project) => (
         <article class="project-card" data-category={project.category} data-status={project.status}>
@@ -150,7 +181,7 @@ if (user) {
             <div class="project-badges">
               {project.gated && (
                 <span class="badge badge-warning">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-small">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                   </svg>
                   Gated
@@ -181,13 +212,13 @@ if (user) {
 
           <div class="project-meta">
             <div class="meta-item">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-small">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 7.125C2.25 6.504 2.754 6 3.375 6h6c.621 0 1.125.504 1.125 1.125v3.75c0 .621-.504 1.125-1.125 1.125h-6a1.125 1.125 0 01-1.125-1.125v-3.75zM14.25 8.625c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-8.25zM3.75 16.125c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-2.25z" />
               </svg>
               {project.subProjectCount} sub-{project.subProjectCount === 1 ? 'project' : 'projects'}
             </div>
             <div class="meta-item">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-small">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               {project.updateCount} {project.updateCount === 1 ? 'update' : 'updates'}
@@ -200,7 +231,17 @@ if (user) {
         </article>
       ))}
     </div>
-  ) : (
+  )}
+
+  <!-- Directory View (Hidden by default) -->
+  {allProjects.length > 0 && (
+    <div class="directory-container" id="directoryContainer" style="display: none;">
+      <ProjectDirectoryView projects={allProjects} />
+    </div>
+  )}
+
+  <!-- Empty State -->
+  {allProjects.length === 0 && (
     <div class="empty-state">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="empty-icon">
         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
@@ -210,14 +251,38 @@ if (user) {
     </div>
   )}
 
-  <!-- Client-side filtering -->
+  <!-- Client-side filtering and view toggle -->
   <script is:inline>
     if (typeof window !== 'undefined') {
       const searchInput = document.getElementById('projectSearch');
       const categoryFilter = document.getElementById('categoryFilter');
       const statusFilter = document.getElementById('statusFilter');
       const projectsGrid = document.getElementById('projectsGrid');
+      const directoryContainer = document.getElementById('directoryContainer');
 
+      // View toggle functionality
+      const viewButtons = document.querySelectorAll('.view-btn');
+
+      viewButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const view = btn.getAttribute('data-view');
+
+          // Update active state
+          viewButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          // Toggle views
+          if (view === 'cards') {
+            if (projectsGrid) projectsGrid.style.display = 'grid';
+            if (directoryContainer) directoryContainer.style.display = 'none';
+          } else {
+            if (projectsGrid) projectsGrid.style.display = 'none';
+            if (directoryContainer) directoryContainer.style.display = 'block';
+          }
+        });
+      });
+
+      // Card view filtering
       function filterProjects() {
         if (!projectsGrid) return;
 
@@ -226,6 +291,7 @@ if (user) {
         const status = statusFilter?.value || '';
 
         const cards = projectsGrid.querySelectorAll('.project-card');
+        let visibleCount = 0;
 
         cards.forEach(card => {
           const title = card.querySelector('.project-title')?.textContent.toLowerCase() || '';
@@ -237,13 +303,62 @@ if (user) {
           const matchesCategory = !category || cardCategory === category;
           const matchesStatus = !status || cardStatus === status;
 
-          card.style.display = (matchesSearch && matchesCategory && matchesStatus) ? 'flex' : 'none';
+          const isVisible = matchesSearch && matchesCategory && matchesStatus;
+          card.style.display = isVisible ? 'flex' : 'none';
+          if (isVisible) visibleCount++;
+        });
+
+        // Update results counter
+        const resultsCount = document.getElementById('resultsCount');
+        const noResults = document.getElementById('noResults');
+
+        if (resultsCount) {
+          resultsCount.textContent = `Showing ${visibleCount} ${visibleCount === 1 ? 'project' : 'projects'}`;
+        }
+
+        // Show/hide no results message
+        if (noResults) {
+          noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+        }
+
+        // Show/hide grid
+        if (projectsGrid) {
+          projectsGrid.style.display = visibleCount === 0 ? 'none' : 'grid';
+        }
+      }
+
+      // Directory view filtering
+      function filterDirectory() {
+        if (!directoryContainer) return;
+
+        const searchTerm = searchInput?.value.toLowerCase() || '';
+        const category = categoryFilter?.value || '';
+        const status = statusFilter?.value || '';
+
+        const items = directoryContainer.querySelectorAll('.directory-item');
+
+        items.forEach(item => {
+          const title = item.querySelector('.project-link')?.textContent.toLowerCase() || '';
+          const itemCategory = item.getAttribute('data-category') || '';
+          const itemStatus = item.getAttribute('data-status') || '';
+
+          const matchesSearch = title.includes(searchTerm);
+          const matchesCategory = !category || itemCategory === category;
+          const matchesStatus = !status || itemStatus === status;
+
+          item.style.display = (matchesSearch && matchesCategory && matchesStatus) ? 'block' : 'none';
         });
       }
 
-      searchInput?.addEventListener('input', filterProjects);
-      categoryFilter?.addEventListener('change', filterProjects);
-      statusFilter?.addEventListener('change', filterProjects);
+      // Apply filters to both views
+      function applyFilters() {
+        filterProjects();
+        filterDirectory();
+      }
+
+      searchInput?.addEventListener('input', applyFilters);
+      categoryFilter?.addEventListener('change', applyFilters);
+      statusFilter?.addEventListener('change', applyFilters);
     }
   </script>
 </WorkspaceLayout>
@@ -294,6 +409,11 @@ if (user) {
     background: var(--primary-dark);
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .icon-btn {
+    width: 1.25rem;
+    height: 1.25rem;
   }
 
   /* Stats Grid */
@@ -378,6 +498,83 @@ if (user) {
   .filter-select:focus {
     outline: none;
     border-color: var(--primary);
+  }
+
+  /* View Toggle */
+  .view-toggle {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.25rem;
+  }
+
+  .view-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 0.375rem;
+    transition: all 0.2s;
+  }
+
+  .view-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .view-btn.active {
+    background: var(--primary);
+    color: white;
+  }
+
+  .icon-view {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  /* Icon Sizing */
+  .icon-small {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  /* Results Info */
+  .results-info {
+    margin-bottom: 1.5rem;
+    color: var(--text-muted);
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+
+  /* No Results State */
+  .no-results {
+    text-align: center;
+    padding: 4rem 2rem;
+  }
+
+  .no-results-icon {
+    width: 4rem;
+    height: 4rem;
+    color: var(--text-muted);
+    margin: 0 auto 1rem;
+  }
+
+  .no-results h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .no-results p {
+    color: var(--text-muted);
+    font-size: 1rem;
   }
 
   /* Projects Grid */
@@ -524,6 +721,11 @@ if (user) {
     color: var(--primary-dark);
   }
 
+  /* Directory Container */
+  .directory-container {
+    width: 100%;
+  }
+
   /* Empty State */
   .empty-state {
     text-align: center;
@@ -569,6 +771,11 @@ if (user) {
 
     .projects-grid {
       grid-template-columns: 1fr;
+    }
+
+    .view-toggle {
+      width: 100%;
+      justify-content: center;
     }
   }
 </style>

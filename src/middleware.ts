@@ -167,5 +167,15 @@ export const onRequest = defineMiddleware(async ({ cookies, url, redirect, local
     );
   }
 
+  // PERFORMANCE: Cache headers for workbench and public pages
+  // Reduces GitHub API calls by allowing browser to cache for 30-60 seconds
+  if (pathname.startsWith('/workbench') && !pathname.includes('/api/')) {
+    // Workbench: Short cache (30s) - has dynamic content but doesn't change constantly
+    response.headers.set('Cache-Control', 'private, max-age=30, must-revalidate');
+  } else if (PUBLIC_ROUTES.some(route => pathname === route)) {
+    // Public pages: Longer cache (60s) - mostly static content
+    response.headers.set('Cache-Control', 'public, max-age=60, must-revalidate');
+  }
+
   return response;
 });

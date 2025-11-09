@@ -1,240 +1,893 @@
 ---
-import DashboardLayout from '../../components/layouts/DashboardLayout.astro';
-import ActivityLog from '../../components/ui/ActivityLog';
-import Breadcrumb from '../../components/ui/Breadcrumb';
+import WorkspaceLayout from '../../components/layouts/WorkspaceLayout.astro';
+import SafetyModal from '../../components/workspace/SafetyModal';
+import { createReader } from '@keystatic/core/reader';
+import keystaticConfig from '../../../keystatic.config';
 import { createSupabaseServer } from '../../lib/supabaseServer';
-import { fetchProjectFromGit, listUpdates, checkContentAccess } from '../../lib/github';
-import { decryptToken } from '../../lib/tokenEncryption';
 import { formatDistanceToNow } from 'date-fns';
-import { Markdown } from '@astrojs/markdown-remark';
+import { getRequirementsForContent } from '../../lib/gatingRequirements';
 
 // Get project slug from URL
 const { id: projectSlug } = Astro.params;
-
-// Get user
-const supabase = createSupabaseServer(Astro.cookies);
-const { data: { user } } = await supabase.auth.getUser();
 
 if (!projectSlug) {
   return Astro.redirect('/projects');
 }
 
-// Fetch user's GitHub repo info
-const { data: userRepo, error: repoError } = await supabase
-  .from('user_repos')
-  .select('repo_owner, repo_name, github_token_encrypted, user_id')
-  .eq('user_id', user?.id || '')
-  .single();
+// Initialize Keystatic reader to fetch content from Git (source of truth)
+const reader = createReader(process.cwd(), keystaticConfig);
 
-if (repoError || !userRepo || !userRepo.github_token_encrypted) {
-  // User hasn't connected GitHub yet - redirect to onboarding
-  if (!user) {
-    return Astro.redirect('/login');
-  }
-  return Astro.redirect('/onboarding');
-}
-
-// Decrypt GitHub token
-let githubToken: string;
-try {
-  githubToken = decryptToken(userRepo.github_token_encrypted);
-} catch (error) {
-  console.error('[Project Page] Token decryption failed:', error);
-  return Astro.redirect('/onboarding');
-}
-
-// Fetch project from GitHub
-const project = await fetchProjectFromGit(
-  githubToken,
-  userRepo.repo_owner,
-  userRepo.repo_name,
-  projectSlug
-);
+// Fetch project from Git
+const project = await reader.collections.projects.read(projectSlug);
 
 if (!project) {
   return Astro.redirect('/projects');
 }
 
-// Check access control
-const isOwner = user?.id === userRepo.user_id;
-const accessCheck = checkContentAccess(project.visibility, isOwner, false);
+// Get user info to check if they're the owner
+const supabase = createSupabaseServer(Astro.cookies);
+const { data: { user } } = await supabase.auth.getUser();
 
-if (!accessCheck.allowed) {
-  // TODO: Show safety modal for gated content
+let isOwner = false;
+if (user) {
+  const { data: workspaceSettings } = await supabase
+    .from('workspace_settings')
+    .select('owner_id')
+    .single();
+  isOwner = user.id === workspaceSettings?.owner_id;
+}
+
+// Check visibility and access control
+if (project.visibility === 'private' && !isOwner) {
+  // Private projects only accessible to owner
   return Astro.redirect('/projects');
 }
 
-// Fetch updates for this project
-const updateSlugs = await listUpdates(
-  githubToken,
-  userRepo.repo_owner,
-  userRepo.repo_name
-);
+// Get workspace owner ID for acknowledgment checking
+let workspaceOwnerId: string | null = null;
+const { data: workspaceSettings } = await supabase
+  .from('workspace_settings')
+  .select('owner_id, workspace_name')
+  .single();
+workspaceOwnerId = workspaceSettings?.owner_id || null;
 
-// TODO: Filter updates by projectSlug and fetch their content
-// For now, just show count
-const totalUpdates = 0; // We'll implement this properly later
+// Check if user has acknowledged gated content
+let hasAcknowledged = false;
+if (project.gated && user && workspaceOwnerId) {
+  // Get all acknowledgment requirement keys for this content
+  const requirements = getRequirementsForContent('project', projectSlug);
+  const requiredKeys = requirements.map(r => r.key);
+
+  // Check if user has acknowledged ALL required keys
+  const { data: acknowledgments } = await supabase
+    .from('reader_acknowledgments')
+    .select('acknowledgment_code')
+    .eq('user_id', user.id)
+    .eq('workspace_owner_id', workspaceOwnerId)
+    .eq('acknowledgment_type', 'safety')
+    .eq('project_slug', projectSlug)
+    .is('subproject_slug', null);
+
+  const acknowledgedKeys = acknowledgments?.map(a => a.acknowledgment_code) || [];
+  hasAcknowledged = requiredKeys.every(key => acknowledgedKeys.includes(key));
+}
+
+// For gated content, show modal if not acknowledged (and user is not owner)
+const needsAcknowledgment = project.gated && !hasAcknowledged && !isOwner;
+
+// Get requirements for the modal
+const gatingRequirements = getRequirementsForContent('project', projectSlug);
+const researcherName = workspaceSettings?.workspace_name || 'the researcher';
+
+// Count sub-projects for this project
+const subProjectSlugs = await reader.collections.subProjects.list();
+const subProjectsPromises = subProjectSlugs.map(async (slug) => {
+  const subProject = await reader.collections.subProjects.read(slug);
+  return subProject?.projectSlug === projectSlug ? subProject : null;
+});
+const subProjects = (await Promise.all(subProjectsPromises)).filter(sp => sp !== null);
+
+// Count updates for this project
+const updateSlugs = await reader.collections.updates.list();
+const updatesPromises = updateSlugs.map(async (slug) => {
+  const update = await reader.collections.updates.read(slug);
+  return update?.projectSlug === projectSlug ? update : null;
+});
+const updates = (await Promise.all(updatesPromises)).filter(u => u !== null);
 
 // Format dates
 const createdDate = project.startDate ? new Date(project.startDate) : new Date();
 const createdAgo = formatDistanceToNow(createdDate, { addSuffix: true });
+
+const lastUpdatedDate = project.lastUpdated ? new Date(project.lastUpdated) : createdDate;
+const lastUpdatedAgo = formatDistanceToNow(lastUpdatedDate, { addSuffix: true });
 ---
 
-<DashboardLayout title={`${project.title} - Workspace`}>
+<WorkspaceLayout
+  title={`${project.title} - Workspace`}
+  description={project.description || `View details about ${project.title}`}
+>
   <!-- Breadcrumb -->
-  <Breadcrumb
-    client:load
-    items={[
-      { label: 'Dashboard', href: '/' },
-      { label: 'Projects', href: '/projects' },
-      { label: project.title }
-    ]}
-  />
+  <div class="breadcrumb-nav">
+    <a href="/" class="breadcrumb-link">Welcome</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="/projects" class="breadcrumb-link">My Projects</a>
+    <span class="breadcrumb-separator">/</span>
+    <span class="breadcrumb-current">{project.title}</span>
+  </div>
 
-  <!-- Header -->
-  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-    <div class="flex-1">
-      <div class="flex items-center gap-3 mb-2">
-        <h1 class="text-3xl font-bold text-base-content">
-          {project.title}
-        </h1>
-
-        <!-- Visibility badge -->
-        {project.visibility === 'public' ? (
-          <div class="tooltip" data-tip="Public project">
-            <div class="badge badge-success gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" class="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+  <!-- Project Header -->
+  <div class="project-header">
+    <div class="header-main">
+      <div class="title-section">
+        <h1 class="project-title">{project.title}</h1>
+        <div class="project-badges">
+          <!-- Visibility Badge -->
+          {project.visibility === 'public' && (
+            <span class="badge badge-public">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
               </svg>
               Public
-            </div>
-          </div>
-        ) : (
-          <div class="tooltip" data-tip="Private project">
-            <div class="badge badge-ghost gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" class="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            </span>
+          )}
+
+          {project.gated && (
+            <span class="badge badge-gated">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              Gated
+            </span>
+          )}
+
+          {project.visibility === 'private' && (
+            <span class="badge badge-private">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
               </svg>
               Private
-            </div>
-          </div>
-        )}
+            </span>
+          )}
 
-        <!-- Category badge -->
-        {project.category && (
-          <div class="badge badge-primary badge-outline">
-            {project.category}
-          </div>
-        )}
+          <!-- Category Badge -->
+          {project.category && (
+            <span class="badge badge-category">{project.category}</span>
+          )}
+
+          <!-- Status Badge -->
+          {project.status && project.status !== 'active' && (
+            <span class="badge badge-status">{project.status}</span>
+          )}
+        </div>
       </div>
 
-      <p class="text-base-content/60 flex items-center gap-2 text-sm">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" class="w-4 h-4">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        Created {createdAgo}
-      </p>
+      <div class="project-meta">
+        <div class="meta-item">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-small">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Created {createdAgo}</span>
+        </div>
+        <div class="meta-item">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-small">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          <span>Updated {lastUpdatedAgo}</span>
+        </div>
+      </div>
     </div>
 
-    <!-- Action buttons (only for owner) -->
     {isOwner && (
-      <div class="flex gap-2">
-        <a href={`/keystatic/collection/projects/item/${projectSlug}`} class="btn bg-personal-primary hover:bg-personal-primary-hover text-white border-0">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" class="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+      <div class="owner-actions">
+        <a href="/workbench/projects" class="btn-secondary">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon-medium">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
           </svg>
-          Edit in Keystatic
-        </a>
-        <a href={`https://github.com/${userRepo.repo_owner}/${userRepo.repo_name}/tree/main/content/projects/${projectSlug}`} target="_blank" rel="noopener noreferrer" class="btn btn-ghost">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" class="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-          </svg>
-          View on GitHub
+          Manage in Workbench
         </a>
       </div>
     )}
   </div>
 
-  <!-- Stats -->
-  <div class="stats shadow mb-8 w-full">
-    <div class="stat">
-      <div class="stat-title">Status</div>
-      <div class="stat-value text-primary text-2xl capitalize">{project.status}</div>
-      <div class="stat-desc">Project status</div>
+  <!-- Stats Grid -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+        </svg>
+      </div>
+      <div class="stat-content">
+        <div class="stat-label">Sub-Projects</div>
+        <div class="stat-value">{subProjects.length}</div>
+      </div>
     </div>
 
-    <div class="stat">
-      <div class="stat-title">Visibility</div>
-      <div class="stat-value text-base-content text-2xl capitalize">{project.visibility}</div>
-      <div class="stat-desc">{project.visibility === 'public' ? 'Anyone can view' : project.visibility === 'gated' ? 'Safety acknowledgment required' : 'Only you can see'}</div>
+    <div class="stat-card">
+      <div class="stat-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+        </svg>
+      </div>
+      <div class="stat-content">
+        <div class="stat-label">Updates</div>
+        <div class="stat-value">{updates.length}</div>
+      </div>
     </div>
 
-    <div class="stat">
-      <div class="stat-title">Category</div>
-      <div class="stat-value text-base-content text-2xl capitalize">{project.category || 'None'}</div>
-      <div class="stat-desc">Project type</div>
+    <div class="stat-card">
+      <div class="stat-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+        </svg>
+      </div>
+      <div class="stat-content">
+        <div class="stat-label">Status</div>
+        <div class="stat-value stat-value-small">{project.status || 'active'}</div>
+      </div>
     </div>
   </div>
 
-  <!-- Project Description -->
-  {project.description && (
-    <div class="card bg-base-100 shadow mb-8">
-      <div class="card-body">
-        <h2 class="card-title text-xl mb-3">About This Project</h2>
-        <p class="text-base-content/80 whitespace-pre-wrap">{project.description}</p>
-      </div>
+  <!-- Gating Modal (Phase 3) -->
+  {needsAcknowledgment && (
+    <div id="safetyModalContainer">
+      <SafetyModal
+        client:only="react"
+        contentSlug={projectSlug}
+        contentType="project"
+        requirements={gatingRequirements}
+        researcherName={researcherName}
+        onAcknowledge={() => {
+          // Reload the page to show the content
+          window.location.reload();
+        }}
+      />
     </div>
   )}
 
-  <!-- Project Content (Markdown Body) -->
-  {project.body && (
-    <div class="card bg-base-100 shadow mb-8">
-      <div class="card-body">
-        <div class="prose max-w-none">
-          <div set:html={project.body} />
-        </div>
+  <!-- Project Description -->
+  {project.description && !needsAcknowledgment && (
+    <div class="content-section">
+      <h2 class="section-title">About This Project</h2>
+      <div class="content-body">
+        <p class="project-description">{project.description}</p>
       </div>
     </div>
   )}
 
   <!-- Tags -->
-  {project.tags && project.tags.length > 0 && (
-    <div class="flex gap-2 mb-8 flex-wrap">
-      {project.tags.map((tag) => (
-        <div class="badge badge-outline">{tag}</div>
-      ))}
+  {project.tags && project.tags.length > 0 && !needsAcknowledgment && (
+    <div class="tags-section">
+      <h3 class="tags-label">Tags:</h3>
+      <div class="tags-list">
+        {project.tags.map((tag) => (
+          <span class="tag">{tag}</span>
+        ))}
+      </div>
     </div>
   )}
 
-  <!-- Recent Updates -->
-  <div class="card bg-base-100 shadow">
-    <div class="card-body">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="card-title text-xl">Recent Updates</h2>
-        {isOwner && (
-          <a href={`/keystatic/collection/updates/create`} class="btn btn-ghost btn-sm">
-            Create Update →
+  <!-- Sub-Projects Section -->
+  {subProjects.length > 0 && !needsAcknowledgment && (
+    <div class="content-section">
+      <h2 class="section-title">Sub-Projects</h2>
+      <div class="subprojects-grid">
+        {subProjects.map((subProject) => (
+          <a href={`/projects/${projectSlug}/${subProject.slug}`} class="subproject-card">
+            <div class="subproject-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+              </svg>
+            </div>
+            <div class="subproject-content">
+              <div class="subproject-title">{subProject.title}</div>
+              {subProject.description && (
+                <p class="subproject-description">{subProject.description}</p>
+              )}
+              <div class="subproject-meta">
+                Status: {subProject.status || 'active'}
+                {subProject.gated && (
+                  <span class="gated-indicator">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                    Gated
+                  </span>
+                )}
+              </div>
+            </div>
           </a>
-        )}
+        ))}
+      </div>
+    </div>
+  )}
+
+  <!-- Recent Updates Section -->
+  {!needsAcknowledgment && (
+    <div class="content-section">
+      <div class="section-header">
+        <h2 class="section-title">Recent Updates</h2>
+        <a href={`/projects/${projectSlug}/updates`} class="view-all-link">
+          View All Updates
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-small">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+          </svg>
+        </a>
       </div>
 
-      {totalUpdates > 0 ? (
-        <p class="text-base-content/60">Updates will be displayed here once implemented.</p>
+      {updates.length > 0 ? (
+        <div class="updates-list">
+          {updates.slice(0, 5).map((update) => (
+            <a href={`/updates/${update.slug}`} class="update-item">
+              <div class="update-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+              </div>
+              <div class="update-content">
+                <div class="update-title">{update.title}</div>
+                {update.date && (
+                  <div class="update-date">{formatDistanceToNow(new Date(update.date), { addSuffix: true })}</div>
+                )}
+              </div>
+              {update.gated && (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="icon-lock">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+              )}
+            </a>
+          ))}
+        </div>
       ) : (
-        <div class="text-center py-8">
-          <div class="text-base-content/40 mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" class="w-12 h-12 mx-auto">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
             </svg>
           </div>
-          <p class="text-base-content/60 mb-4">No updates yet</p>
-          {isOwner && (
-            <a href={`/keystatic/collection/updates/create`} class="btn btn-primary btn-sm">
-              Create First Update
-            </a>
-          )}
+          <p class="empty-message">No updates yet for this project</p>
         </div>
       )}
     </div>
-  </div>
-</DashboardLayout>
+  )}
+</WorkspaceLayout>
+
+<style>
+  /* Breadcrumb */
+  .breadcrumb-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    font-size: 0.875rem;
+  }
+
+  .breadcrumb-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .breadcrumb-link:hover {
+    color: var(--primary);
+  }
+
+  .breadcrumb-separator {
+    color: var(--text-tertiary);
+  }
+
+  .breadcrumb-current {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  /* Project Header */
+  .project-header {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .header-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .title-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .project-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .project-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+
+  .badge-public {
+    background: var(--success-bg);
+    color: var(--success);
+  }
+
+  .badge-gated {
+    background: var(--warning-bg);
+    color: var(--warning);
+  }
+
+  .badge-private {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+  }
+
+  .badge-category {
+    background: var(--primary-bg);
+    color: var(--primary);
+  }
+
+  .badge-status {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+  }
+
+  .project-meta {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  .owner-actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  /* Stats Grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+  }
+
+  .stat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    background: var(--primary-bg);
+    color: var(--primary);
+    border-radius: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .stat-icon svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .stat-content {
+    flex: 1;
+  }
+
+  .stat-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-value {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .stat-value-small {
+    font-size: 1.25rem;
+    text-transform: capitalize;
+  }
+
+  /* Gating Notice */
+  .gating-notice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 3rem 2rem;
+    background: var(--warning-bg);
+    border: 2px solid var(--warning);
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .notice-icon {
+    margin-bottom: 1.5rem;
+    color: var(--warning);
+  }
+
+  .notice-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .notice-description {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+    max-width: 600px;
+  }
+
+  /* Content Section */
+  .content-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 1.5rem 0;
+  }
+
+  .view-all-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  .view-all-link:hover {
+    gap: 0.75rem;
+  }
+
+  .content-body {
+    color: var(--text-primary);
+  }
+
+  .project-description {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+  }
+
+  /* Tags */
+  .tags-section {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .tags-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .tags-list {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    padding: 0.25rem 0.75rem;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  /* Sub-Projects Grid */
+  .subprojects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+
+  .subproject-card {
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .subproject-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+  }
+
+  .subproject-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    background: var(--bg-hover);
+    color: var(--text-muted);
+    border-radius: 0.375rem;
+    flex-shrink: 0;
+  }
+
+  .subproject-icon svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .subproject-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .subproject-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+  }
+
+  .subproject-description {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0.5rem 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .subproject-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-top: 0.5rem;
+  }
+
+  .gated-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--warning);
+  }
+
+  /* Updates List */
+  .updates-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .update-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .update-item:hover {
+    border-color: var(--primary);
+    transform: translateX(4px);
+  }
+
+  .update-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    background: var(--bg-hover);
+    color: var(--text-muted);
+    border-radius: 0.375rem;
+    flex-shrink: 0;
+  }
+
+  .update-icon svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .update-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .update-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.125rem;
+  }
+
+  .update-date {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+  }
+
+  /* Empty State */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 3rem 1rem;
+  }
+
+  .empty-icon {
+    margin-bottom: 1rem;
+    color: var(--text-tertiary);
+  }
+
+  .empty-icon svg {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .empty-message {
+    font-size: 1rem;
+    color: var(--text-secondary);
+  }
+
+  /* Icon Sizing */
+  .icon-small {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .icon-medium {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .icon-large {
+    width: 4rem;
+    height: 4rem;
+  }
+
+  .icon-lock {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--warning);
+    flex-shrink: 0;
+  }
+
+  /* Buttons */
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-dark);
+  }
+
+  .btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .btn-secondary:hover {
+    background: var(--bg-hover);
+  }
+
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
+    .project-title {
+      font-size: 1.5rem;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .subprojects-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .project-meta {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .owner-actions {
+      flex-direction: column;
+    }
+
+    .section-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+  }
+</style>
+

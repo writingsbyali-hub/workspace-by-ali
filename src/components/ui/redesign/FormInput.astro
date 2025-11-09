@@ -40,6 +40,17 @@ const {
 
 const inputId = id || name;
 const hasError = Boolean(error);
+
+// Generate IDs for ARIA relationships
+const hintId = `${inputId}-hint`;
+const errorId = `${inputId}-error`;
+const countId = `${inputId}-count`;
+
+// Build aria-describedby list
+const describedByIds: string[] = [];
+if (hint && !hasError) describedByIds.push(hintId);
+if (showCount && maxLength) describedByIds.push(countId);
+const ariaDescribedBy = describedByIds.length > 0 ? describedByIds.join(' ') : undefined;
 ---
 
 <div class="form-control">
@@ -65,11 +76,13 @@ const hasError = Boolean(error);
     required={required}
     disabled={disabled}
     maxlength={maxLength}
-    {...Astro.props}
+    aria-invalid={hasError ? 'true' : undefined}
+    aria-describedby={ariaDescribedBy}
+    aria-errormessage={hasError ? errorId : undefined}
   />
 
   {hint && !hasError && (
-    <div class="form-hint">
+    <div id={hintId} class="form-hint">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
@@ -78,7 +91,7 @@ const hasError = Boolean(error);
   )}
 
   {hasError && (
-    <div class="error-message">
+    <div id={errorId} class="error-message" role="alert" aria-live="polite">
       <svg class="error-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
@@ -87,7 +100,7 @@ const hasError = Boolean(error);
   )}
 
   {showCount && maxLength && (
-    <div class="char-count" id={`${inputId}-count`}>
+    <div id={countId} class="char-count" aria-live="polite" aria-atomic="true">
       {value?.length || 0} / {maxLength}
     </div>
   )}

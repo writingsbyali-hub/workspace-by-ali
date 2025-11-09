@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { usePreferencesWithFallback } from '../providers/PreferencesProvider';
 
 interface Project {
   id: string;
@@ -11,29 +12,48 @@ interface ProjectSwitcherProps {
 }
 
 export default function ProjectSwitcher({ projects }: ProjectSwitcherProps) {
+  const { state, setCurrentProject, loading } = usePreferencesWithFallback() as any;
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Load selected project from localStorage on mount
+  // Load selected project from workspace state
   useEffect(() => {
-    const storedProjectId = localStorage.getItem('currentProjectId');
+    if (loading) return;
+
+    const storedProjectId = state?.session?.currentProjectId;
     if (storedProjectId && projects.some(p => p.id === storedProjectId)) {
       setSelectedProjectId(storedProjectId);
     } else if (projects.length > 0) {
       // Auto-select first project if none selected
-      setSelectedProjectId(projects[0].id);
-      localStorage.setItem('currentProjectId', projects[0].id);
+      const firstProjectId = projects[0].id;
+      setSelectedProjectId(firstProjectId);
+
+      // Save to GitHub (async)
+      if (setCurrentProject) {
+        setCurrentProject(firstProjectId).catch((err: Error) => {
+          console.error('[ProjectSwitcher] Failed to save project selection:', err);
+        });
+      }
     }
-  }, [projects]);
+  }, [projects, state, loading, setCurrentProject]);
 
   // Handle project selection
-  const handleSelectProject = (projectId: string) => {
+  const handleSelectProject = async (projectId: string) => {
+    // Update local state immediately for instant UI feedback
     setSelectedProjectId(projectId);
-    localStorage.setItem('currentProjectId', projectId);
     setIsOpen(false);
 
     // Dispatch custom event so other components can react to project change
     window.dispatchEvent(new CustomEvent('projectChanged', { detail: { projectId } }));
+
+    // Sync to GitHub (async)
+    if (setCurrentProject) {
+      try {
+        await setCurrentProject(projectId);
+      } catch (error) {
+        console.error('[ProjectSwitcher] Failed to save project selection:', error);
+      }
+    }
   };
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);

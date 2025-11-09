@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "theme": {
+    "mode": "system",
+    "preferSystemTheme": true
+  },
+  "editor": {
+    "defaultViewMode": "split",
+    "autoSave": true,
+    "autoSaveDebounce": 2000
+  },
+  "navigation": {},
+  "accessibility": {}
+}
