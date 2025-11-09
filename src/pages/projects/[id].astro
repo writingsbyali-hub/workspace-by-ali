@@ -83,7 +83,7 @@ const researcherName = workspaceSettings?.workspace_name || 'the researcher';
 const subProjectSlugs = await reader.collections.subProjects.list();
 const subProjectsPromises = subProjectSlugs.map(async (slug) => {
   const subProject = await reader.collections.subProjects.read(slug);
-  return subProject?.projectSlug === projectSlug ? subProject : null;
+  return subProject?.parentProject === projectSlug ? subProject : null;
 });
 const subProjects = (await Promise.all(subProjectsPromises)).filter(sp => sp !== null);
 
@@ -91,7 +91,7 @@ const subProjects = (await Promise.all(subProjectsPromises)).filter(sp => sp !==
 const updateSlugs = await reader.collections.updates.list();
 const updatesPromises = updateSlugs.map(async (slug) => {
   const update = await reader.collections.updates.read(slug);
-  return update?.projectSlug === projectSlug ? update : null;
+  return update?.project === projectSlug ? update : null;
 });
 const updates = (await Promise.all(updatesPromises)).filter(u => u !== null);
 
