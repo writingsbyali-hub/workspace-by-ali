@@ -190,6 +190,22 @@ export default config({
           validation: { isRequired: true },
         }),
 
+        visibility: fields.select({
+          label: 'Who can access this sub-project?',
+          options: [
+            { label: 'Inherit from Parent Project', value: 'inherit' },
+            { label: 'Public - Anyone can view', value: 'public' },
+            { label: 'Gated - Requires safety acknowledgment', value: 'gated' },
+            { label: 'Private - Only you can view', value: 'private' },
+          ],
+          defaultValue: 'inherit',
+        }),
+
+        safetyCode: fields.text({
+          label: 'Safety Code (Required only if Gated)',
+          description: 'ONLY fill this if visibility is "Gated"\n\nEnter a unique code like "plasma_safety_v1.3"\n\nReaders must enter this exact code to access gated content.\n\nValid format: lowercase letters, numbers, and underscores only.',
+        }),
+
         description: fields.text({
           label: 'Description',
           multiline: true,
@@ -250,6 +266,22 @@ export default config({
           collection: 'subProjects',
         }),
 
+        visibility: fields.select({
+          label: 'Who can access this update?',
+          options: [
+            { label: 'Inherit from Parent', value: 'inherit' },
+            { label: 'Public - Anyone can view', value: 'public' },
+            { label: 'Gated - Requires safety acknowledgment', value: 'gated' },
+            { label: 'Private - Only you can view', value: 'private' },
+          ],
+          defaultValue: 'inherit',
+        }),
+
+        safetyCode: fields.text({
+          label: 'Safety Code (Required only if Gated)',
+          description: 'ONLY fill this if visibility is "Gated"\n\nEnter a unique code like "plasma_safety_v1.3"\n\nReaders must enter this exact code to access gated content.\n\nValid format: lowercase letters, numbers, and underscores only.',
+        }),
+
         date: fields.date({
           label: 'Date',
           defaultValue: { kind: 'today' },
@@ -259,10 +291,10 @@ export default config({
         type: fields.select({
           label: 'Update Type',
           options: [
-            { label: '🔬 Experiment', value: 'experiment' },
-            { label: '👁️ Observation', value: 'observation' },
-            { label: '🎯 Milestone', value: 'milestone' },
-            { label: '📝 Note', value: 'note' },
+            { label: 'Experiment', value: 'experiment' },
+            { label: 'Observation', value: 'observation' },
+            { label: 'Milestone', value: 'milestone' },
+            { label: 'Note', value: 'note' },
           ],
           defaultValue: 'note',
         }),
