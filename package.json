@@ -15,7 +15,7 @@
     "session": "tsx scripts/session-updater.ts"
   },
   "dependencies": {
-    "@astrojs/react": "^4.4.1",
+    "@astrojs/react": "^4.4.2",
     "@astrojs/vercel": "^8.2.11",
     "@headlessui/react": "^2.2.9",
     "@keystatic/astro": "^5.0.6",
@@ -24,7 +24,7 @@
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.76.1",
     "@tremor/react": "^3.18.7",
-    "astro": "^5.14.8",
+    "astro": "^5.15.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
