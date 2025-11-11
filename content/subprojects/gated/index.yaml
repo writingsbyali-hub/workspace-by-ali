@@ -1,3 +1,4 @@
 parentProject: not active_draft gate test
-visibility: inherit
+visibility: gated
+safetyCode: test
 lastUpdated: 2025-11-11
