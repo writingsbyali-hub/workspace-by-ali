@@ -1,0 +1,5 @@
+parentProject: a project for testing
+visibility: inherit
+safetyCode: safety
+description: public cannot see this unless they are a reader
+lastUpdated: 2025-11-11
