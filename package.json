@@ -44,7 +44,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.5",
     "@astrojs/tailwind": "^6.0.2",
-    "@types/highlight.js": "^9.12.4",
+    "@types/highlight.js": "^10.1.0",
     "@types/marked": "^5.0.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
