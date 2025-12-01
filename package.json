@@ -15,7 +15,7 @@
     "session": "tsx scripts/session-updater.ts"
   },
   "dependencies": {
-    "@astrojs/react": "^4.4.1",
+    "@astrojs/react": "^4.4.2",
     "@astrojs/vercel": "^8.2.11",
     "@headlessui/react": "^2.2.9",
     "@keystatic/astro": "^5.0.6",
@@ -24,7 +24,7 @@
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.76.1",
     "@tremor/react": "^3.18.7",
-    "astro": "^5.14.8",
+    "astro": "^5.16.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -42,7 +42,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.5",
+    "@astrojs/check": "^0.9.6",
     "@astrojs/tailwind": "^6.0.2",
     "@types/highlight.js": "^9.12.4",
     "@types/marked": "^5.0.2",
